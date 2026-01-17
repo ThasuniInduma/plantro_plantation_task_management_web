@@ -1,0 +1,103 @@
+/* Styling for the Footer */
+.main-footer {
+  background-color: #1e3a20; /* Very Dark Green */
+  color: white;
+  padding: 4rem 0 1.5rem;
+  font-family: 'Inter', sans-serif;
+}
+
+.footer-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 1.5rem 3rem;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 40px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.footer-column h4 {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #4caf50; /* Green accent for headings */
+  margin-bottom: 1.5rem;
+}
+
+/* Branding Column */
+.footer-logo {
+  
+  width: 200px;
+  height: 200px;
+}
+
+.leaf-icon {
+  font-size: 2rem;
+  color: #81c784;
+  margin-right: 10px;
+}
+
+.footer-tagline {
+  font-size: 0.95rem;
+  color: rgba(255, 255, 255, 0.7);
+  line-height: 1.6;
+}
+
+/* Navigation & Contact Columns */
+.nav-links-col ul {
+  list-style: none;
+  padding: 0;
+}
+
+.nav-links-col a {
+  color: rgba(255, 255, 255, 0.8);
+  text-decoration: none;
+  font-size: 1rem;
+  display: block;
+  margin-bottom: 0.8rem;
+  transition: color 0.2s ease;
+}
+
+.nav-links-col a:hover {
+  color: #4caf50;
+  text-decoration: underline;
+}
+
+.contact-col p {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 1rem;
+  margin-bottom: 0.8rem;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+/* Footer Bottom */
+.footer-bottom {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1.5rem 1.5rem 0;
+  text-align: center;
+}
+
+.footer-bottom p {
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .footer-container {
+    grid-template-columns: 1fr;
+    gap: 30px;
+    padding-bottom: 2rem;
+  }
+  .footer-column {
+    text-align: center;
+  }
+  .contact-col p {
+    justify-content: center;
+  }
+  .footer-logo {
+    justify-content: center;
+  }
+}

@@ -1,33 +1,36 @@
 import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { Routes, Route } from 'react-router-dom'
+import Home from './pages/home'
+import Login from './pages/login/login'
+import Workerprofile from './pages/worker/workerprofile'
+import WorkerDashboard from './pages/worker/workerDashboard'
+import SupervisorDashboard from './pages/supervisor/supervisorDashboard'
+import SupervisorProfile from './pages/supervisor/supervisorProfile'
+import AdminDashboard from './pages/admin/adminDashboard'
+import AdminProfile from './pages/admin/adminProfile'
+import CropManagement from './pages/crop/cropManagement'
+import FieldManagement from './pages/field/fieldManagement'
+import ReportManagement from './pages/report/reportManagement'
+
 
 function App() {
-  const [count, setCount] = useState(0)
-
   return (
     <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.jsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
+      <div className='app'>
+      <Routes>
+        <Route path='/' element={<Home />} />
+        <Route path='/login' element={<Login/>} />
+        <Route path='/worker' element={<WorkerDashboard/>} />
+        <Route path='/worker-profile' element={<Workerprofile/>} />
+        <Route path='/supervisor' element={<SupervisorDashboard/>} />
+        <Route path='/supervisor-profile' element={<SupervisorProfile/>} />
+        <Route path='/admin' element={<AdminDashboard/>} />
+        <Route path='/admin-profile' element={<AdminProfile/>} />
+        <Route path='/crop' element={<CropManagement/>} />
+        <Route path='/field' element={<FieldManagement/>} />
+        <Route path='/report' element={<ReportManagement/>} />
+      </Routes>
+    </div>
     </>
   )
 }
