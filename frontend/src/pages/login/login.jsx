@@ -1,20 +1,49 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import './Login.css';
 import { assets } from '../../assets/assets';
+import axios from 'axios'
+
 
 const Login = () => {
+  const navigate = useNavigate();
+  const [values, setValues] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    password: ''
+  })
   const [isSigningUp, setIsSigningUp] = useState(false);
   const [isRecovering, setIsRecovering] = useState(false); 
-  const [role, setRole] = useState('Worker');
 
   const handleSubmit = (e) => {
     e.preventDefault();
+
+    axios.post('http://localhost:8081/register', values)
+    .then(res => {
+      console.log(res.data);
+
+      if (res.data.status === "Worker registered successfully") {
+        setValues({ name: '', email: '', phone: '', password: '' });
+
+        navigate('/worker'); 
+      }
+    })
+    .catch(err => {
+      console.error(err.response?.data || err.message);
+      alert(err.response?.data?.error || "Registration failed");
+    });
+
+
     if (isRecovering) {
       console.log('Password Recovery submitted.');
     } else {
-      console.log('Auth Form submitted:', { role, action: isSigningUp ? 'Sign Up' : 'Sign In' });
+      console.log('Auth Form submitted:', {
+        action: isSigningUp ? 'Sign Up' : 'Sign In'
+      });
     }
   };
+
 
   const handleTabChange = (signUp) => {
     setIsSigningUp(signUp);
@@ -72,34 +101,24 @@ const Login = () => {
               {isSigningUp && (
                 <>
                   <label htmlFor="fullName">Full Name</label>
-                  <input type="text" id="fullName" placeholder="Your Name" required />
+                  <input type="text" id="fullName" placeholder="Your Name" required onChange={e => setValues({...values, name: e.target.value})}/>
                 </>
               )}
 
               <label htmlFor="email">Email</label>
-              <input type="email" id="email" placeholder="your@email.com" required />
+              <input type="email" id="email" placeholder="your@email.com" required onChange={e => setValues({...values, email: e.target.value})}/>
 
               {isSigningUp && (
                 <>
                   <label htmlFor="phone">Phone</label>
-                  <input type="tel" id="phone" placeholder="+94 XX XXX XXXX" required />
+                  <input type="tel" id="phone" placeholder="+94 XX XXX XXXX" required onChange={e => setValues({...values, phone: e.target.value})}/>
 
-                  <label htmlFor="role">Role</label>
-                  <select
-                    id="role"
-                    value={role}
-                    onChange={(e) => setRole(e.target.value)}
-                    required
-                  >
-                    <option value="Worker">Worker</option>
-                    <option value="Admin">Supervisor</option>
-                    <option value="Owner">Owner</option>
-                  </select>
+                  
                 </>
               )}
 
               <label htmlFor="password">Password</label>
-              <input type="password" id="password" placeholder="********" required />
+              <input type="password" id="password" placeholder="********" required onChange={e => setValues({...values, password: e.target.value})}/>
 
               {/* Forgot Password Link*/}
               {!isSigningUp && (
