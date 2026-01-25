@@ -11,6 +11,8 @@ import AdminProfile from './pages/admin/adminProfile'
 import CropManagement from './pages/crop/cropManagement'
 import FieldManagement from './pages/field/fieldManagement'
 import ReportManagement from './pages/report/reportManagement'
+import EmailVerify from './pages/login/EmailVerify'
+import ResetPassword from './pages/login/ResetPassword'
 
 
 function App() {
@@ -29,6 +31,8 @@ function App() {
         <Route path='/crop' element={<CropManagement/>} />
         <Route path='/field' element={<FieldManagement/>} />
         <Route path='/report' element={<ReportManagement/>} />
+        <Route path="/email-verify" element={<EmailVerify />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
       </Routes>
     </div>
     </>

@@ -1,147 +1,158 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
-import './Login.css';
+import axios from 'axios';
+import { toast } from 'react-toastify';
+import { AppContext } from '../../context/AppContext';
 import { assets } from '../../assets/assets';
-import axios from 'axios'
-
+import './Login.css';
 
 const Login = () => {
   const navigate = useNavigate();
-  const [values, setValues] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    password: ''
-  })
-  const [isSigningUp, setIsSigningUp] = useState(false);
-  const [isRecovering, setIsRecovering] = useState(false); 
+  const { backendUrl } = useContext(AppContext);
 
-  const handleSubmit = (e) => {
+  const [state, setState] = useState('Log In');
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [phone, setPhone] = useState('');
+
+  const onSubmitHandler = async (e) => {
     e.preventDefault();
+    axios.defaults.withCredentials = true;
 
-    axios.post('http://localhost:8081/register', values)
-    .then(res => {
-      console.log(res.data);
+    try {
+        if (state === 'Sign Up') {
+        // --- SIGN UP FLOW ---
+        if (password !== confirmPassword) {
+            toast.error('Passwords do not match');
+            return;
+        }
 
-      if (res.data.status === "Worker registered successfully") {
-        setValues({ name: '', email: '', phone: '', password: '' });
+        if (phone.length < 10) {
+            toast.error('Invalid phone number');
+            return;
+        }
 
-        navigate('/worker'); 
-      }
-    })
-    .catch(err => {
-      console.error(err.response?.data || err.message);
-      alert(err.response?.data?.error || "Registration failed");
-    });
+        const { data } = await axios.post(
+            `${backendUrl}/api/auth/register`,
+            { name, email, password, phone }
+        );
 
+        if (data.success) {
+            toast.success(data.message); // e.g., "OTP sent to your email"
+            navigate('/email-verify');
+        } else {
+            toast.error(data.message); // e.g., "User exists"
+        }
+        } else {
+        // --- LOGIN FLOW ---
+        const { data } = await axios.post(
+            `${backendUrl}/api/auth/login`,
+            { email, password }
+        );
 
-    if (isRecovering) {
-      console.log('Password Recovery submitted.');
-    } else {
-      console.log('Auth Form submitted:', {
-        action: isSigningUp ? 'Sign Up' : 'Sign In'
-      });
+        if (data.success) {
+            toast.success('Login successful');
+            navigate('/worker');
+        } else {
+            toast.error(data.message || 'Login failed'); // Handles success:false responses
+        }
+        }
+    } catch (error) {
+        // --- ERROR HANDLING ---
+        if (error.response && error.response.data && error.response.data.message) {
+        // Backend sent a proper status and message
+        toast.error(error.response.data.message);
+        } else {
+        // Fallback generic error
+        toast.error(error.message || 'Something went wrong');
+        }
     }
-  };
+    };
 
-
-  const handleTabChange = (signUp) => {
-    setIsSigningUp(signUp);
-    setIsRecovering(false);
-  };
-
-  const handleForgotPasswordClick = () => {
-    setIsRecovering(true);
-    setIsSigningUp(false); 
-  };
 
   return (
-    <div className="auth-container">
-      <div className="auth-card">
-        <div className="logo-section">
-          <img src={assets.plantro} alt="" className='logo' />
+    <div className="login">
+      <div className="login-container">
+        
+        <div className="image-container">
+          <img src={assets.img5} alt="login" />
         </div>
 
-        {!isRecovering && (
-          <div className="tab-buttons">
-            <button
-              className={!isSigningUp ? 'active' : ''}
-              onClick={() => handleTabChange(false)}
-            >
-              Sign In
-            </button>
-            <button
-              className={isSigningUp ? 'active' : ''}
-              onClick={() => handleTabChange(true)}
-            >
-              Sign Up
-            </button>
-          </div>
-        )}
-
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="auth-form">
+        <form onSubmit={onSubmitHandler}>
           
-          <h2 className='form-title'>
-            {isRecovering ? 'Password Recovery' : isSigningUp ? 'Create Your Account' : 'Welcome Back'}
-          </h2>
 
-          {/* Password Recovery View */}
-          {isRecovering ? (
-            <>
-              <p className="recovery-instruction">
-                Enter your email address to receive a password reset link.
+          <h2>{state}</h2>
+
+          {state === 'Sign Up' && (
+            <input
+              type="text"
+              placeholder="Full Name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+            />
+          )}
+
+          <input
+            type="email"
+            placeholder="Email Address"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
+
+          {state === 'Sign Up' && (
+            <input
+              type="text"
+              placeholder="Phone Number"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              required
+            />
+          )}
+
+          <input
+            type="password"
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
+
+          {state === 'Sign Up' && (
+            <input
+              type="password"
+              placeholder="Confirm Password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              required
+            />
+          )}
+
+          <div className="options">
+            {state === 'Log In' && (
+              <p onClick={() => navigate('/reset-password')}>
+                Forgot Password?
               </p>
-              <label htmlFor="email">Email</label>
-              <input type="email" id="email" placeholder="your@email.com" required />
-            </>
-          ) : (
-            // Sign In / Sign Up View
-            <>
-              {isSigningUp && (
-                <>
-                  <label htmlFor="fullName">Full Name</label>
-                  <input type="text" id="fullName" placeholder="Your Name" required onChange={e => setValues({...values, name: e.target.value})}/>
-                </>
-              )}
+            )}
 
-              <label htmlFor="email">Email</label>
-              <input type="email" id="email" placeholder="your@email.com" required onChange={e => setValues({...values, email: e.target.value})}/>
-
-              {isSigningUp && (
-                <>
-                  <label htmlFor="phone">Phone</label>
-                  <input type="tel" id="phone" placeholder="+94 XX XXX XXXX" required onChange={e => setValues({...values, phone: e.target.value})}/>
-
-                  
-                </>
-              )}
-
-              <label htmlFor="password">Password</label>
-              <input type="password" id="password" placeholder="********" required onChange={e => setValues({...values, password: e.target.value})}/>
-
-              {/* Forgot Password Link*/}
-              {!isSigningUp && (
-                <p className="forgot-password">
-                  <span onClick={handleForgotPasswordClick}>Forgot Password?</span>
-                </p>
-              )}
-            </>
-          )}
-
-          <button
-            type="submit"
-            className={isRecovering || isSigningUp ? "auth-submit-button sign-up-button" : "auth-submit-button sign-in-button"}
-          >
-            {isRecovering ? "Send Reset Link" : isSigningUp ? "Create Account" : "Sign In"}
-          </button>
-          
-          {/* Back to Login/SignUp*/}
-          {isRecovering && (
-            <p className="back-to-login">
-              <span onClick={() => setIsRecovering(false)}>← Back to Login</span>
+            <p
+              className="text-blue"
+              onClick={() =>
+                setState(state === 'Log In' ? 'Sign Up' : 'Log In')
+              }
+            >
+              {state === 'Log In'
+                ? 'Create Account'
+                : 'Already have an account'}
             </p>
-          )}
+          </div>
+
+          <button className="primary" type="submit">
+            {state}
+          </button>
         </form>
       </div>
     </div>
