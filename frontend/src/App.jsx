@@ -30,7 +30,7 @@ function App() {
         <Route path='/supervisor' element={<SupervisorDashboard/>} />
         <Route path='/supervisor-profile' element={<SupervisorProfile/>} />
         <Route path='/admin' element={<AdminDashboard/>} />
-        <Route path='/admin-profile' element={<AdminProfile/>} />
+        <Route path='/owner-profile' element={<AdminProfile/>} />
         <Route path='/crop' element={<CropManagement/>} />
         <Route path='/field' element={<FieldManagement/>} />
         <Route path='/report' element={<ReportManagement/>} />
