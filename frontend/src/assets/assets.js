@@ -10,7 +10,7 @@ import img5 from './img5.png'
 import img6 from './img6.png'
 import img7 from './img7.png'
 import img8 from './img8.png'
-import img9 from './img9.png'
+import img9 from './img9.jpg'
 
 export const assets ={
     plantro,

@@ -22,55 +22,64 @@ const Login = () => {
     axios.defaults.withCredentials = true;
 
     try {
-        if (state === 'Sign Up') {
+      if (state === 'Sign Up') {
         // --- SIGN UP FLOW ---
         if (password !== confirmPassword) {
-            toast.error('Passwords do not match');
-            return;
+          toast.error('Passwords do not match');
+          return;
         }
 
         if (phone.length < 10) {
-            toast.error('Invalid phone number');
-            return;
+          toast.error('Invalid phone number');
+          return;
         }
 
         const { data } = await axios.post(
-            `${backendUrl}/api/auth/register`,
-            { name, email, password, phone }
+          `${backendUrl}/api/auth/register`,
+          { name, email, password, phone }
         );
 
         if (data.success) {
-            toast.success(data.message); // e.g., "OTP sent to your email"
-            navigate('/email-verify');
+          toast.success(data.message); // e.g., "OTP sent to your email"
+          navigate('/email-verify');
         } else {
-            toast.error(data.message); // e.g., "User exists"
+          toast.error(data.message); // e.g., "User exists"
         }
-        } else {
+      } else {
         // --- LOGIN FLOW ---
         const { data } = await axios.post(
-            `${backendUrl}/api/auth/login`,
-            { email, password }
+          `${backendUrl}/api/auth/login`,
+          { email, password }
         );
 
         if (data.success) {
-            toast.success('Login successful');
-            navigate('/worker');
-        } else {
-            toast.error(data.message || 'Login failed'); // Handles success:false responses
-        }
-        }
-    } catch (error) {
-        // --- ERROR HANDLING ---
-        if (error.response && error.response.data && error.response.data.message) {
-        // Backend sent a proper status and message
-        toast.error(error.response.data.message);
-        } else {
-        // Fallback generic error
-        toast.error(error.message || 'Something went wrong');
-        }
-    }
-    };
+          toast.success('Login successful');
 
+          // --- ROLE-BASED NAVIGATION ---
+          const roleName = data.user.role_name; // backend now sends role_name
+
+          if (roleName === 'OWNER' || roleName === 'ADMIN') {
+            navigate('/admin');       // OWNER/Admin
+          } else if (roleName === 'SUPERVISOR') {
+            navigate('/supervisor'); // Supervisor
+          } else if (roleName === 'WORKER') {
+            navigate('/worker');     // Worker
+          } else {
+            navigate('/');           // fallback
+          }
+
+        } else {
+          toast.error(data.message || 'Login failed');
+        }
+      }
+    } catch (error) {
+      if (error.response && error.response.data && error.response.data.message) {
+        toast.error(error.response.data.message);
+      } else {
+        toast.error(error.message || 'Something went wrong');
+      }
+    }
+  };
 
   return (
     <div className="login">

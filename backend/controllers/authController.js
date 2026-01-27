@@ -51,7 +51,7 @@ export const register = async (req, res) => {
    VERIFY ACCOUNT
    ========================= */
 export const verifyAccount = async (req, res) => {
-  const { otp } = req.body;
+  const { otp, role } = req.body; // role can be ADMIN, SUPERVISOR, WORKER
 
   try {
     const [rows] = await db.query(
@@ -59,21 +59,22 @@ export const verifyAccount = async (req, res) => {
       [otp, Date.now()]
     );
 
-    if (!rows.length) {
+    if (!rows.length)
       return res.status(400).json({ success: false, message: "Invalid or expired OTP" });
-    }
 
     const user = rows[0];
 
+    const roleName = role?.toUpperCase() || 'WORKER'; // default WORKER
+
     await db.query(
       `INSERT INTO users (role_id, full_name, email, phone, password)
-       SELECT role_id, ?, ?, ?, ? FROM roles WHERE role_name='WORKER'`,
-      [user.full_name, user.email, user.phone, user.password]
+       SELECT role_id, ?, ?, ?, ? FROM roles WHERE role_name=?`,
+      [user.full_name, user.email, user.phone, user.password, roleName]
     );
 
     await db.query("DELETE FROM temp_users WHERE user_id=?", [user.user_id]);
 
-    res.json({ success: true, message: "Account verified successfully" });
+    res.json({ success: true, message: `Account verified successfully as ${roleName}` });
 
   } catch (err) {
     console.error(err);
@@ -127,7 +128,13 @@ export const login = async (req, res) => {
   const { email, password } = req.body;
 
   try {
-    const [rows] = await db.query("SELECT * FROM users WHERE email=?", [email]);
+    const [rows] = await db.query(
+      `SELECT u.*, r.role_name FROM users u
+      JOIN roles r ON u.role_id = r.role_id
+      WHERE u.email=?`,
+      [email]
+    );
+
     if (!rows.length) {
       return res.status(404).json({ success: false, message: "User not found" });
     }
@@ -147,7 +154,9 @@ export const login = async (req, res) => {
 
     res.cookie("token", token, {
       httpOnly: true,
-      sameSite: "lax"
+      sameSite: "lax",
+      secure: false,              // REQUIRED on localhost
+      maxAge: 7 * 24 * 60 * 60 * 1000
     });
 
     const { password: _, ...safeUser } = user;

@@ -1,12 +1,26 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
-import './WorkerDashboard.css';
-import { assets } from '../../assets/assets';
+import SideNav from '../../components/SideNav';
+import { AppContext } from '../../context/AppContext';
+import axios from 'axios';
+import './workerDashboard.css';
+import {
+  FiArrowRight,
+  FiBell,
+  FiCheckCircle,
+  FiClock,
+  FiAlertCircle,
+  FiTrendingUp,
+  FiX,
+  FiCalendar,
+  FiMap,
+  FiUsers,
+} from 'react-icons/fi';
 
 const mockInitialTasks = [
   {
     id: 201,
-    date: '2025-10-22',
+    date: '2026-01-28',
     name: 'Fertilizing (NPK Mixture)',
     field: 'Plot C-003 (Lower Field)',
     crop: 'Cinnamon',
@@ -20,7 +34,7 @@ const mockInitialTasks = [
   },
   {
     id: 202,
-    date: '2025-10-22',
+    date: '2026-01-28',
     name: 'Young Shoot Pruning',
     field: 'Block F-001 (Hillside)',
     crop: 'Tea',
@@ -37,7 +51,7 @@ const mockInitialTasks = [
 const mockTomorrowTasks = [
   {
     id: 203,
-    date: '2025-10-23',
+    date: '2026-01-29',
     name: 'Tea Leaf Plucking',
     field: 'Block F-001 (Hillside)',
     crop: 'Tea',
@@ -53,12 +67,13 @@ const mockTomorrowTasks = [
 
 const WorkerDashboard = () => {
   const navigate = useNavigate();
-
+  const { userData, backendUrl } = useContext(AppContext);
+  
   const [tasks, setTasks] = useState(mockInitialTasks);
   const [tomorrowTasks, setTomorrowTasks] = useState(mockTomorrowTasks);
   const [attendanceStatus, setAttendanceStatus] = useState('Pending');
-  const [activeTab, setActiveTab] = useState('today');
-  const [showHarvestModal, setShowHarvestModal] = useState(false);
+  const [activeTab, setActiveTab] = useState('worker');
+  const [activedTab, setActivedTab] = useState('today');
   const [selectedTask, setSelectedTask] = useState(null);
   const [notifications, setNotifications] = useState([
     { id: 1, message: 'New task assigned for tomorrow', time: '10 mins ago', read: false, type: 'info' },
@@ -69,8 +84,14 @@ const WorkerDashboard = () => {
   const [currentTime, setCurrentTime] = useState(new Date());
 
   // States for Unable Today feature
-  const [taskReasons, setTaskReasons] = useState({}); // { taskId: reason }
-  const [showReasonInput, setShowReasonInput] = useState({}); // { taskId: true/false }
+  const [taskReasons, setTaskReasons] = useState({});
+  const [showReasonInput, setShowReasonInput] = useState({});
+
+  // User display name
+  const displayName = userData?.full_name || userData?.name || 'Worker';
+  const avatarLetter = displayName.charAt(0).toUpperCase();
+
+  
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -98,11 +119,6 @@ const WorkerDashboard = () => {
     }
   };
 
-  const openHarvestModal = (task) => {
-    setSelectedTask(task);
-    setShowHarvestModal(true);
-  };
-
   const addNotification = (message, type = 'info') => {
     const newNotification = {
       id: Date.now(),
@@ -120,6 +136,10 @@ const WorkerDashboard = () => {
     );
   };
 
+  const markAllAsRead = () => {
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+  };
+
   const unreadCount = notifications.filter(n => !n.read).length;
 
   const completedToday = tasks.filter(t => t.status === 'Completed').length;
@@ -135,12 +155,15 @@ const WorkerDashboard = () => {
 
   const submitReason = (task) => {
     const reason = taskReasons[task.id];
-    if (!reason) return alert('Please enter a reason.');
+    if (!reason || reason.trim() === '') {
+      alert('Please enter a reason.');
+      return;
+    }
 
     const newTask = {
       ...task,
       status: 'Assigned',
-      description: `${task.description} (Postponed Reason: ${reason})`,
+      description: `${task.description} (Postponed: ${reason})`,
     };
 
     setTomorrowTasks(prev => [...prev, newTask]);
@@ -152,366 +175,368 @@ const WorkerDashboard = () => {
     addNotification(`Task "${task.name}" postponed to tomorrow`, 'info');
   };
 
+  const cancelReasonInput = (taskId) => {
+    setShowReasonInput(prev => ({ ...prev, [taskId]: false }));
+    setTaskReasons(prev => ({ ...prev, [taskId]: '' }));
+  };
+
+  const getGreeting = () => {
+    const hour = currentTime.getHours();
+    if (hour < 12) return 'Good Morning';
+    if (hour < 18) return 'Good Afternoon';
+    return 'Good Evening';
+  };
+
   return (
     <div className="worker-dashboard-layout">
-      <header className="worker-header-modern">
-        <div className="header-left-content">
-          <div className="logo-section-modern">
-            <div className="logo-circle">
-              <img src={assets.plantro} alt="Plantro" className="logo-img" />
-            </div>
-          </div>
-        </div>
-
-        <div className="header-center-content">
-          <div className="date-time-display">
-            <div className="current-date">
-              {currentTime.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-            </div>
-            <div className="current-time">
-              {currentTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
-            </div>
-          </div>
-        </div>
-
-        <div className="header-right-content">
-          <button className="icon-button" onClick={() => setShowNotifications(!showNotifications)}>
-            <span className="icon-bell">🔔</span>
-            {unreadCount > 0 && <span className="badge-count">{unreadCount}</span>}
-          </button>
-          
-          <div className="user-profile-section">
-            <div className="user-avatar" onClick={() => navigate('/worker-profile')}>
-              <span className="avatar-text">RK</span>
-            </div>
-            <div className="user-details">
-              <span className="user-name">Rajitha Kumara</span>
-              <span className="user-role">Worker • W001</span>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {showNotifications && (
-        <>
-          <div className="notification-overlay" onClick={() => setShowNotifications(false)}></div>
-          <div className="notifications-panel">
-            <div className="panel-header">
-              <h3>Notifications</h3>
-              <button className="mark-all-read" onClick={() => setNotifications(prev => prev.map(n => ({ ...n, read: true })))}>
-                Mark all as read
-              </button>
-            </div>
-            <div className="notifications-body">
-              {notifications.length === 0 ? (
-                <div className="no-notifications">
-                  <span className="empty-icon">📭</span>
-                  <p>No notifications yet</p>
-                </div>
-              ) : (
-                notifications.map(notif => (
-                  <div
-                    key={notif.id}
-                    className={`notification-card ${notif.read ? 'read' : 'unread'} ${notif.type}`}
-                    onClick={() => markNotificationRead(notif.id)}
-                  >
-                    <div className="notif-icon">
-                      {notif.type === 'success' && '✅'}
-                      {notif.type === 'warning' && '⚠️'}
-                      {notif.type === 'info' && 'ℹ️'}
-                      {notif.type === 'error' && '❌'}
-                    </div>
-                    <div className="notif-content">
-                      <p>{notif.message}</p>
-                      <span className="notif-time">{notif.time}</span>
-                    </div>
-                    {!notif.read && <div className="unread-indicator"></div>}
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        </>
-      )}
-
-      <div className="dashboard-container">
-        <div className="welcome-banner">
-          <div className="welcome-content">
-            <div className="welcome-text">
-              <h1 className="welcome-title">Good {currentTime.getHours() < 12 ? 'Morning' : currentTime.getHours() < 18 ? 'Afternoon' : 'Evening'}, Rajitha!</h1>
-              <p className="welcome-subtitle">Here's your work overview for today</p>
-            </div>
-            <div className="quick-actions-banner">
-              <button className="quick-action-btn primary" onClick={() => openHarvestModal(tasks[0])}>
-                Report Harvest
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div className="metrics-grid">
-          <div className="metric-card completed">
-            <div className="metric-icon-wrapper">
-              <span className="metric-icon">✓</span>
-            </div>
-            <div className="metric-details">
-              <h3 className="metric-value">{completedToday}</h3>
-              <p className="metric-label">Completed</p>
-              <div className="metric-change positive">+2 from yesterday</div>
-            </div>
+      <SideNav
+                role="worker"
+                activeTab={activeTab}
+                setActiveTab={setActiveTab}
+                userName="worker"
+                userRole="worker"
+            />
+      
+      <div className="main-content">
+        {/* Header */}
+        <header className="content-header">
+          <div className="header-left">
+            <h1 className="page-title">My Dashboard</h1>
+            <p className="page-subtitle">Track your daily tasks and progress</p>
           </div>
 
-          <div className="metric-card progress">
-            <div className="metric-icon-wrapper">
-              <span className="metric-icon">⚡</span>
-            </div>
-            <div className="metric-details">
-              <h3 className="metric-value">{inProgress}</h3>
-              <p className="metric-label">In Progress</p>
-              <div className="metric-change neutral">Active now</div>
-            </div>
-          </div>
-
-          <div className="metric-card pending">
-            <div className="metric-icon-wrapper">
-              <span className="metric-icon">⏱</span>
-            </div>
-            <div className="metric-details">
-              <h3 className="metric-value">{pending}</h3>
-              <p className="metric-label">Pending</p>
-              <div className="metric-change neutral">Awaiting start</div>
-            </div>
-          </div>
-
-          <div className="metric-card rate">
-            <div className="metric-icon-wrapper">
-              <span className="metric-icon">📈</span>
-            </div>
-            <div className="metric-details">
-              <h3 className="metric-value">{completionRate}%</h3>
-              <p className="metric-label">Completion Rate</p>
-              <div className="progress-bar-mini">
-                <div className="progress-fill-mini" style={{ width: `${completionRate}%` }}></div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="attendance-card-modern">
-          <div className="card-header-modern">
-            <div className="header-icon-text">
-              <span className="card-icon">📅</span>
-              <div>
-                <h3>Tomorrow's Attendance</h3>
-                <p>Confirm your availability for October 23, 2025</p>
-              </div>
-            </div>
+          <div className="header-actions">
             <button 
-              className={`attendance-toggle ${attendanceStatus.toLowerCase()}`}
-              onClick={handleMarkAttendance}
+              className="notification-btn"
+              onClick={() => setShowNotifications(!showNotifications)}
             >
-              <span className="toggle-icon">{attendanceStatus === 'Pending' ? '⏳' : '✓'}</span>
-              <span>{attendanceStatus === 'Pending' ? 'Mark Present' : 'Confirmed'}</span>
+              <FiBell />
+              {unreadCount > 0 && <span className="notification-badge">{unreadCount}</span>}
             </button>
           </div>
-        </div>
+        </header>
 
-        <div className="tasks-section">
-          <div className="section-header">
-            <h2 className="section-title">Your Tasks</h2>
-            <div className="tab-switcher">
-              <button 
-                className={`tab-btn ${activeTab === 'today' ? 'active' : ''}`}
-                onClick={() => setActiveTab('today')}
-              >
-                Today ({tasks.length})
-              </button>
-              <button 
-                className={`tab-btn ${activeTab === 'tomorrow' ? 'active' : ''}`}
-                onClick={() => setActiveTab('tomorrow')}
-              >
-                Tomorrow ({tomorrowTasks.length})
-              </button>
+        {/* Notifications Dropdown */}
+        {showNotifications && (
+          <>
+            <div className="notification-overlay" onClick={() => setShowNotifications(false)}></div>
+            <div className="notifications-dropdown">
+              <div className="notifications-header">
+                <h3>Notifications</h3>
+                {unreadCount > 0 && (
+                  <button className="mark-all-btn" onClick={markAllAsRead}>
+                    Mark all as read
+                  </button>
+                )}
+              </div>
+              <div className="notifications-list">
+                {notifications.length === 0 ? (
+                  <div className="empty-notifications">
+                    <span className="empty-icon">📭</span>
+                    <p>No notifications</p>
+                  </div>
+                ) : (
+                  notifications.map(notif => (
+                    <div 
+                      key={notif.id} 
+                      className={`notification-item ${notif.read ? '' : 'unread'} ${notif.type}`}
+                      onClick={() => markNotificationRead(notif.id)}
+                    >
+                      <div className="notif-icon">
+                        {notif.type === 'success' && <FiCheckCircle />}
+                        {notif.type === 'warning' && <FiAlertCircle />}
+                        {notif.type === 'info' && <FiBell />}
+                      </div>
+                      <div className="notif-content">
+                        <p className="notif-message">{notif.message}</p>
+                        <span className="notif-time">{notif.time}</span>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* Main Content */}
+        <main className="content-body">
+          {/* Welcome Section */}
+          <div className="welcome-section">
+            <div className="welcome-card">
+              <div className="welcome-text">
+                <h2>{getGreeting()}, {displayName}! 👋</h2>
+                <p>Here's your work overview for today</p>
+              </div>
+              <div className="date-time-display">
+                <div className="date-info">
+                  <span className="date">
+                    {currentTime.toLocaleDateString('en-US', { 
+                      weekday: 'short', 
+                      month: 'short', 
+                      day: 'numeric' 
+                    })}
+                  </span>
+                  <span className="time">
+                    {currentTime.toLocaleTimeString('en-US', { 
+                      hour: '2-digit', 
+                      minute: '2-digit' 
+                    })}
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
 
-          <div className="tasks-grid">
-            {(activeTab === 'today' ? tasks : tomorrowTasks).map(task => (
-              <div key={task.id} className={`task-card-modern ${task.status.toLowerCase().replace(' ', '-')} priority-${task.priority}`}>
-                <div className="task-header-modern">
-                  <div className="task-badges">
-                    <span className={`status-badge-modern ${task.status.toLowerCase().replace(' ', '-')}`}>
-                      {task.status}
-                    </span>
-                  </div>
-                  <div className="task-time-badge">
-                    <span className="time-icon">🕐</span>
-                    {task.dueTime}
-                  </div>
+          {/* Metrics Grid */}
+          <div className="metrics-section">
+            <div className="metric-card completed">
+              <div className="metric-icon">
+                <FiCheckCircle size={28} />
+              </div>
+              <div className="metric-content">
+                <h4>Completed</h4>
+                <p className="metric-value">{completedToday}</p>
+                <span className="metric-change positive">
+                  +{Math.max(0, completedToday - 2)} from yesterday
+                </span>
+              </div>
+            </div>
+
+            <div className="metric-card progress">
+              <div className="metric-icon">
+                <FiClock size={28} />
+              </div>
+              <div className="metric-content">
+                <h4>In Progress</h4>
+                <p className="metric-value">{inProgress}</p>
+                <span className="metric-change neutral">Active now</span>
+              </div>
+            </div>
+
+            <div className="metric-card pending">
+              <div className="metric-icon">
+                <FiAlertCircle size={28} />
+              </div>
+              <div className="metric-content">
+                <h4>Pending</h4>
+                <p className="metric-value">{pending}</p>
+                <span className="metric-change neutral">Awaiting start</span>
+              </div>
+            </div>
+
+            <div className="metric-card rate">
+              <div className="metric-icon">
+                <FiTrendingUp size={28} />
+              </div>
+              <div className="metric-content">
+                <h4>Completion Rate</h4>
+                <p className="metric-value">{completionRate}%</p>
+                <div className="progress-bar">
+                  <div 
+                    className="progress-fill" 
+                    style={{ width: `${completionRate}%` }}
+                  ></div>
                 </div>
+              </div>
+            </div>
+          </div>
 
-                <h3 className="task-title-modern">{task.name}</h3>
-                <p className="task-description-modern">{task.description}</p>
-
-                <div className="task-meta-grid">
-                  <div className="meta-item">
-                    <span className="meta-icon">🌾</span>
-                    <div className="meta-content">
-                      <label>Crop</label>
-                      <p>{task.crop}</p>
-                    </div>
-                  </div>
-                  <div className="meta-item">
-                    <span className="meta-icon">📍</span>
-                    <div className="meta-content">
-                      <label>Location</label>
-                      <p>{task.field}</p>
-                    </div>
-                  </div>
-                  <div className="meta-item">
-                    <span className="meta-icon">⏱</span>
-                    <div className="meta-content">
-                      <label>Duration</label>
-                      <p>{task.estimatedTime}h</p>
-                    </div>
-                  </div>
-                  <div className="meta-item">
-                    <span className="meta-icon">👥</span>
-                    <div className="meta-content">
-                      <label>Team</label>
-                      {task.team.map(member => <p key={member}>{member}</p>)}
-                    </div>
-                  </div>
+          {/* Attendance Card */}
+          <div className="attendance-section">
+            <div className="attendance-card">
+              <div className="attendance-header">
+                <div className="attendance-info">
+                  <h3>Tomorrow's Attendance</h3>
+                  <p>
+                    Confirm your availability for {new Date(currentTime.getTime() + 86400000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                  </p>
                 </div>
+                <button 
+                  className={`attendance-btn ${attendanceStatus.toLowerCase()}`}
+                  onClick={handleMarkAttendance}
+                >
+                  <span className="btn-icon">
+                    {attendanceStatus === 'Pending' ? <FiClock /> : <FiCheckCircle />}
+                  </span>
+                  {attendanceStatus === 'Pending' ? 'Mark Present' : 'Confirmed'}
+                </button>
+              </div>
+            </div>
+          </div>
 
-                {activeTab === 'today' && (
-                  <div className="task-actions-modern">
-                    {task.status === 'Assigned' && (
-                      <button 
-                        className="task-btn start-btn"
-                        onClick={() => handleUpdateStatus(task.id, 'In Progress')}
-                      >
-                        Start Task
-                      </button>
-                    )}
-                    {task.status === 'In Progress' && (
-                      <>
-                        <button 
-                          className="task-btn complete-btn"
-                          onClick={() => handleUpdateStatus(task.id, 'Completed')}
-                        >
-                          <span className="btn-icon">✓</span>
-                          Complete
-                        </button>
+          {/* Tasks Section */}
+          <div className="tasks-section">
+            <div className="section-header">
+              <h2>Your Tasks</h2>
+              <div className="tab-buttons">
+                <button 
+                  className={`tab-btn ${activedTab === 'today' ? 'active' : ''}`}
+                  onClick={() => setActivedTab('today')}
+                >
+                  <FiCalendar />
+                  Today ({tasks.length})
+                </button>
+                <button 
+                  className={`tab-btn ${activedTab === 'tomorrow' ? 'active' : ''}`}
+                  onClick={() => setActivedTab('tomorrow')}
+                >
+                  <FiCalendar />
+                  Tomorrow ({tomorrowTasks.length})
+                </button>
+              </div>
+            </div>
 
-                        <button
-                          className="task-btn unable-btn"
-                          onClick={() => handleUnableToday(task)}
-                        >
-                          Unable Today
-                        </button>
+            <div className="tasks-container">
+              {(activedTab === 'today' ? tasks : tomorrowTasks).length === 0 ? (
+                <div className="no-tasks">
+                  <span className="no-tasks-icon">
+                    <FiCheckCircle size={64} />
+                  </span>
+                  <h3>No tasks for {activedTab === 'today' ? 'today' : 'tomorrow'}</h3>
+                  <p>Enjoy your free time or check back later!</p>
+                </div>
+              ) : (
+                <div className="tasks-grid">
+                  {(activedTab === 'today' ? tasks : tomorrowTasks).map(task => (
+                    <div key={task.id} className={`task-card ${task.status.toLowerCase().replace(' ', '-')}`}>
+                      <div className="task-card-header">
+                        <div className="task-status-badge">{task.status}</div>
+                        <div className="task-time">
+                          <FiClock size={14} />
+                          {task.dueTime}
+                        </div>
+                      </div>
 
-                        {showReasonInput[task.id] && (
-                          <div className="reason-popup-overlay">
-                            <div className="reason-popup">
-                              <h4>Enter Reason</h4>
-                              <input
-                                type="text"
-                                placeholder="Enter reason for postponing"
+                      <h3 className="task-title">{task.name}</h3>
+                      <p className="task-description">{task.description}</p>
+
+                      <div className="task-details-grid">
+                        <div className="detail-item">
+                          <span className="detail-label">
+                            <FiMap size={12} /> Field
+                          </span>
+                          <p>{task.field}</p>
+                        </div>
+                        <div className="detail-item">
+                          <span className="detail-label">
+                            <FiClock size={12} /> Duration
+                          </span>
+                          <p>{task.estimatedTime}h</p>
+                        </div>
+                        <div className="detail-item">
+                          <span className="detail-label">Crop</span>
+                          <p>{task.crop}</p>
+                        </div>
+                        <div className="detail-item">
+                          <span className="detail-label">
+                            <FiUsers size={12} /> Team
+                          </span>
+                          <p>
+                            {task.team[0].includes('None') 
+                              ? 'Solo Task' 
+                              : `${task.team.length} members`}
+                          </p>
+                        </div>
+                      </div>
+
+                      {activedTab === 'today' && (
+                        <div className="task-actions">
+                          {task.status === 'Assigned' && (
+                            <>
+                              <button 
+                                className="task-action-btn start-btn"
+                                onClick={() => handleUpdateStatus(task.id, 'In Progress')}
+                              >
+                                <FiArrowRight size={16} />
+                                Start Task
+                              </button>
+                              <button
+                                className="task-action-btn unable-btn"
+                                onClick={() => handleUnableToday(task)}
+                              >
+                                Unable Today
+                              </button>
+                            </>
+                          )}
+                          {task.status === 'In Progress' && (
+                            <>
+                              <button 
+                                className="task-action-btn complete-btn"
+                                onClick={() => handleUpdateStatus(task.id, 'Completed')}
+                              >
+                                <FiCheckCircle size={16} />
+                                Complete
+                              </button>
+                              <button
+                                className="task-action-btn unable-btn"
+                                onClick={() => handleUnableToday(task)}
+                              >
+                                Unable Today
+                              </button>
+                            </>
+                          )}
+                          {task.status === 'Completed' && (
+                            <div className="task-completed-badge">
+                              <FiCheckCircle size={16} />
+                              Completed Successfully
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Reason Modal */}
+                      {showReasonInput[task.id] && (
+                        <div className="reason-modal-overlay" onClick={() => cancelReasonInput(task.id)}>
+                          <div className="reason-modal" onClick={(e) => e.stopPropagation()}>
+                            <div className="reason-modal-header">
+                              <h4>Unable to Complete Task</h4>
+                              <button 
+                                className="close-btn"
+                                onClick={() => cancelReasonInput(task.id)}
+                              >
+                                <FiX size={20} />
+                              </button>
+                            </div>
+                            <div className="reason-modal-body">
+                              <label>Please provide a reason for postponing this task:</label>
+                              <textarea
+                                placeholder="E.g., Equipment unavailable, weather conditions, health issues..."
                                 value={taskReasons[task.id] || ''}
                                 onChange={(e) =>
                                   setTaskReasons(prev => ({ ...prev, [task.id]: e.target.value }))
                                 }
-                                className="task-reason-input"
+                                className="reason-input"
+                                rows="4"
+                                autoFocus
                               />
-                              <div className="popup-btns">
-                                <button
-                                  className="submit-reason-btn"
-                                  onClick={() => submitReason(task)}
-                                >
-                                  Submit
-                                </button>
-                                <button
-                                  className="cancel-reason-btn"
-                                  onClick={() =>
-                                    setShowReasonInput(prev => ({ ...prev, [task.id]: false }))
-                                  }
-                                >
-                                  Cancel
-                                </button>
-                              </div>
+                            </div>
+                            <div className="reason-modal-footer">
+                              <button
+                                className="reason-cancel-btn"
+                                onClick={() => cancelReasonInput(task.id)}
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                className="reason-submit-btn"
+                                onClick={() => submitReason(task)}
+                                disabled={!taskReasons[task.id] || taskReasons[task.id].trim() === ''}
+                              >
+                                Postpone to Tomorrow
+                              </button>
                             </div>
                           </div>
-                        )}
-
-                      </>
-                    )}
-                    {task.status === 'Completed' && (
-                      <div className="completed-indicator">
-                        <span className="check-icon">✓</span>
-                        Task Completed
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {showHarvestModal && (
-        <div className="modal-overlay-fullscreen" onClick={() => setShowHarvestModal(false)}>
-          <div className="modal-content-fullscreen" onClick={(e) => e.stopPropagation()}>
-            <button className="close-modal-btn" onClick={() => setShowHarvestModal(false)}>
-              ✕
-            </button>
-            
-            <div className="modal-layout">
-              <div className="modal-sidebar">
-                <div className="modal-branding">
-                  <h1>Report Harvest</h1>
-                  <p>Submit your daily productivity data</p>
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
-                
-                <div className="task-info-panel">
-                  <h3>Task Information</h3>
-                  <div className="info-item">
-                    <span className="info-label">Task Name</span>
-                    <p>{selectedTask?.name}</p>
-                  </div>
-                  <div className="info-item">
-                    <span className="info-label">Field</span>
-                    <p>{selectedTask?.field}</p>
-                  </div>
-                  <div className="info-item">
-                    <span className="info-label">Crop</span>
-                    <p>{selectedTask?.crop}</p>
-                  </div>
-                  <div className="info-item">
-                    <span className="info-label">Supervisor</span>
-                    <p>{selectedTask?.supervisor}</p>
-                  </div>
-                </div>
-              </div>
-              
-              <div className="modal-main">
-                <form className="harvest-form">
-                  <div className="form-group">
-                    <label>Quantity Harvested (kg)</label>
-                    <input type="number" placeholder="Enter harvested quantity" />
-                  </div>
-                  <div className="form-group">
-                    <label>Notes / Observations</label>
-                    <textarea placeholder="Add any remarks"></textarea>
-                  </div>
-                  <button type="submit" className="submit-harvest-btn">Submit</button>
-                </form>
-              </div>
+              )}
             </div>
           </div>
-        </div>
-      )}
+        </main>
+      </div>
     </div>
   );
 };

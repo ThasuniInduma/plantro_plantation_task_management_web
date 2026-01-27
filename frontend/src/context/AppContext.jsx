@@ -21,11 +21,15 @@ export const AppContextProvider = ({ children }) => {
         setUserData(null);
         setIsLoggedIn(false);
       }
-    } catch {
+    } catch (err) {
+      // Only log real errors, ignore initial 401
+      if (err.response?.status !== 401) console.error(err);
       setUserData(null);
       setIsLoggedIn(false);
     }
   };
+
+
 
   useEffect(() => {
     getUserData();
@@ -37,7 +41,8 @@ export const AppContextProvider = ({ children }) => {
       isLoggedIn,
       setIsLoggedIn,
       userData,
-      getUserData
+      getUserData,
+      setUserData,
     }}>
       {children}
     </AppContext.Provider>

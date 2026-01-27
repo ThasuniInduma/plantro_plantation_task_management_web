@@ -13,6 +13,9 @@ import FieldManagement from './pages/field/fieldManagement'
 import ReportManagement from './pages/report/reportManagement'
 import EmailVerify from './pages/login/EmailVerify'
 import ResetPassword from './pages/login/ResetPassword'
+import WorkforceManagement from './pages/workforce/workforceManagement'
+import Attendance from './pages/supervisor/attendance/Attendance'
+import Tasks from './pages/supervisor/tasks/Tasks'
 
 
 function App() {
@@ -31,8 +34,11 @@ function App() {
         <Route path='/crop' element={<CropManagement/>} />
         <Route path='/field' element={<FieldManagement/>} />
         <Route path='/report' element={<ReportManagement/>} />
+        <Route path='/workforce' element={<WorkforceManagement/>} />
         <Route path="/email-verify" element={<EmailVerify />} />
         <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path='/attendance' element={<Attendance/>} />
+        <Route path='/tasks' element={<Tasks/>} />
       </Routes>
     </div>
     </>
