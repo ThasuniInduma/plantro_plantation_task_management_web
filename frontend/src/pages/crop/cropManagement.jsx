@@ -23,23 +23,43 @@ const CropManagement = ({ logo }) => {
     const [newTask, setNewTask] = useState({ task_name: '', description: '', frequency_days: '', estimated_hours: '' });
 
     useEffect(() => {
-        const fetchCrops = async () => {
-            try {
-                const res = await fetch('http://localhost:8081/api/crops');
-                const data = await res.json();
-                const formatted = data.map(c => ({
-                    id: String(c.crop_id),
-                    name: c.crop_name,
-                    description: c.description,
-                    tasks: []
-                }));
-                setCrops(formatted);
-            } catch (err) {
-                console.error('Failed to fetch crops:', err);
-            }
-        };
-        fetchCrops();
-    }, []);
+    const fetchCropsAndTasks = async () => {
+        try {
+            const res = await fetch('http://localhost:8081/api/crops');
+            const cropData = await res.json();
+
+            const cropsWithTasks = await Promise.all(
+                cropData.map(async (c) => {
+                    try {
+                        const taskRes = await fetch(`http://localhost:8081/api/tasks/crop/${c.crop_id}`);
+                        const tasks = await taskRes.json();
+
+                        return {
+                            id:c.crop_id,
+                            name: c.crop_name,
+                            description: c.description,
+                            tasks: tasks
+                        };
+                    } catch {
+                        return {
+                            id: c.crop_id,
+                            name: c.crop_name,
+                            description: c.description,
+                            tasks: []
+                        };
+                    }
+                })
+            );
+
+            setCrops(cropsWithTasks);
+
+        } catch (err) {
+            console.error('Failed to fetch crops:', err);
+        }
+    };
+
+    fetchCropsAndTasks();
+}, []);
 
     useEffect(() => {
         const fetchTasks = async () => {
