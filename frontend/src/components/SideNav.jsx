@@ -1,8 +1,8 @@
-import React, { useContext, useEffect, useState } from 'react';
+import React, { useContext, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   FiGrid, FiPackage, FiMap, FiUsers, FiBarChart2,
-  FiCheckSquare, FiClock, FiUser, FiLogOut, FiCalendar
+  FiCheckSquare, FiUser, FiLogOut, FiCalendar
 } from 'react-icons/fi';
 import './SideNav.css';
 import { assets } from '../assets/assets';
@@ -11,40 +11,21 @@ import axios from 'axios';
 
 const SideNav = ({ activeTab, setActiveTab }) => {
   const navigate = useNavigate();
-  const { userData, setIsLoggedIn, backendUrl } = useContext(AppContext);
-  const [role, setRole] = useState(null);
-  const [displayName, setDisplayName] = useState('User');
+  const { userData, setIsLoggedIn, setUserData, backendUrl } = useContext(AppContext);
 
-  // Map API role names to menuConfigs keys
-  const roleMap = {
-    owner: 'admin',      // OWNER in DB → admin
-    admin: 'admin',
-    supervisor: 'supervisor',
-    worker: 'worker'
-  };
-
-  useEffect(() => {
-  if (userData) {
-    setDisplayName(userData.full_name || 'User');
-
-    // Make sure role_id is a number
+  // derive role from userData
+  const role = useMemo(() => {
+    if (!userData) return null;
     const roleId = Number(userData.role_id);
+    if (roleId === 1) return 'admin';
+    if (roleId === 2) return 'supervisor';
+    if (roleId === 3) return 'worker';
+    return 'worker';
+  }, [userData]);
 
-    let mappedRole = 'worker'; // default
+  const displayName = userData?.full_name || 'User';
 
-    if (roleId === 1) mappedRole = 'admin';       // OWNER/Admin
-    else if (roleId === 2) mappedRole = 'supervisor';
-    else if (roleId === 3) mappedRole = 'worker';
-
-    setRole(mappedRole);
-  }
-}, [userData]);
-
-
-
-  if (!role) {
-    return <aside className="sidebar">Loading...</aside>;
-  }
+  if (!role) return <aside className="sidebar">Loading...</aside>;
 
   const displayRole =
     role === 'admin'
@@ -55,21 +36,18 @@ const SideNav = ({ activeTab, setActiveTab }) => {
 
   const avatarLetter = displayName.charAt(0).toUpperCase();
 
-  // Logout function
+  // Logout
   const handleLogout = async () => {
-  try {
-    await axios.post(`${backendUrl}/api/auth/logout`);
-  } catch (err) {
-    console.error('Logout error:', err);
-  }
+    try {
+      await axios.post(`${backendUrl}/api/auth/logout`);
+    } catch (err) {
+      console.error(err);
+    }
 
-  // Clear context states
-  setIsLoggedIn(false);
-  setRole(null);       // <-- reset role
-  setDisplayName('User'); // optional
-  navigate('/login');
-};
-
+    setIsLoggedIn(false);
+    setUserData(null); // clear context
+    navigate('/login');
+  };
 
   const handleNavigation = (tab, path) => {
     setActiveTab(tab);
@@ -79,49 +57,29 @@ const SideNav = ({ activeTab, setActiveTab }) => {
   const menuConfigs = {
     admin: {
       sections: [
-        {
-          title: 'Main',
-          items: [{ id: 'dashboard', label: 'Dashboard', icon: <FiGrid />, path: '/admin' }]
-        },
-        {
-          title: 'Management',
-          items: [
-            { id: 'crops', label: 'Crop Management', icon: <FiPackage />, path: '/crop' },
-            { id: 'fields', label: 'Field Management', icon: <FiMap />, path: '/field' },
-            { id: 'workforce', label: 'Workforce Management', icon: <FiUsers />, path: '/workforce' }
-          ]
-        },
-        {
-          title: 'Analytics',
-          items: [{ id: 'reports', label: 'Reports & Analytics', icon: <FiBarChart2 />, path: '/report' }]
-        }
+        { title: 'Main', items: [{ id: 'dashboard', label: 'Dashboard', icon: <FiGrid />, path: '/admin' }] },
+        { title: 'Management', items: [
+          { id: 'crops', label: 'Crop Management', icon: <FiPackage />, path: '/crop' },
+          { id: 'fields', label: 'Field Management', icon: <FiMap />, path: '/field' },
+          { id: 'workforce', label: 'Workforce Management', icon: <FiUsers />, path: '/workforce' }
+        ]},
+        { title: 'Analytics', items: [{ id: 'reports', label: 'Reports & Analytics', icon: <FiBarChart2 />, path: '/report' }] }
       ],
       profilePath: '/owner-profile'
     },
     supervisor: {
       sections: [
-        {
-          title: 'Main',
-          items: [{ id: 'dashboard', label: 'Field Status', icon: <FiGrid />, path: '/supervisor' }]
-        },
-        {
-          title: 'Management',
-          items: [
-            { id: 'attendance', label: 'Attendance', icon: <FiCalendar />, path: '/attendance' },
-            { id: 'tasks', label: 'Assign Tasks', icon: <FiCheckSquare />, path: '/tasks' }
-          ]
-        }
+        { title: 'Main', items: [{ id: 'dashboard', label: 'Field Status', icon: <FiGrid />, path: '/supervisor' }] },
+        { title: 'Management', items: [
+          { id: 'attendance', label: 'Attendance', icon: <FiCalendar />, path: '/attendance' },
+          { id: 'tasks', label: 'Assign Tasks', icon: <FiCheckSquare />, path: '/tasks' }
+        ]}
       ],
       profilePath: '/supervisor-profile'
     },
     worker: {
       sections: [
-        {
-          title: 'Main',
-          items: [
-            { id: 'worker', label: 'My Tasks', icon: <FiCheckSquare />, path: '/worker' },
-          ]
-        }
+        { title: 'Main', items: [{ id: 'worker', label: 'My Tasks', icon: <FiCheckSquare />, path: '/worker' }] }
       ],
       profilePath: '/worker-profile'
     }
@@ -131,7 +89,6 @@ const SideNav = ({ activeTab, setActiveTab }) => {
 
   return (
     <aside className="sidebar">
-      {/* Sidebar Header */}
       <div className="sidebar-header">
         <div className="brand-logo">
           <img src={assets.plantro} alt="Plantro Logo" className="brand-logo-img" />
@@ -139,7 +96,6 @@ const SideNav = ({ activeTab, setActiveTab }) => {
         </div>
       </div>
 
-      {/* Navigation Menu */}
       <nav className="sidebar-nav">
         {currentConfig.sections.map((section, idx) => (
           <div key={idx} className="nav-section">
@@ -158,12 +114,8 @@ const SideNav = ({ activeTab, setActiveTab }) => {
         ))}
       </nav>
 
-      {/* Sidebar Footer */}
       <div className="sidebar-footer">
-        <div
-          className="user-profile"
-          onClick={() => handleNavigation('profile', currentConfig.profilePath)}
-        >
+        <div className="user-profile" onClick={() => handleNavigation('profile', currentConfig.profilePath)}>
           <div className="user-avatar">{avatarLetter}</div>
           <div className="user-info">
             <div className="user-name">{displayName}</div>
@@ -172,18 +124,10 @@ const SideNav = ({ activeTab, setActiveTab }) => {
         </div>
 
         <div className="sidebar-actions">
-          <button
-            className="action-btn"
-            onClick={() => handleNavigation('profile', currentConfig.profilePath)}
-            title="My Profile"
-          >
+          <button className="action-btn" onClick={() => handleNavigation('profile', currentConfig.profilePath)} title="My Profile">
             <FiUser />
           </button>
-          <button
-            className="action-btn logout-btn"
-            onClick={handleLogout}
-            title="Logout"
-          >
+          <button className="action-btn logout-btn" onClick={handleLogout} title="Logout">
             <FiLogOut />
           </button>
         </div>

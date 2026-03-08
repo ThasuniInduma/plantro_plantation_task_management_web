@@ -8,7 +8,7 @@ import './Login.css';
 
 const Login = () => {
   const navigate = useNavigate();
-  const { backendUrl } = useContext(AppContext);
+  const { backendUrl, setUserData, setIsLoggedIn } = useContext(AppContext);
 
   const [state, setState] = useState('Log In');
   const [name, setName] = useState('');
@@ -23,12 +23,10 @@ const Login = () => {
 
     try {
       if (state === 'Sign Up') {
-        // --- SIGN UP FLOW ---
         if (password !== confirmPassword) {
           toast.error('Passwords do not match');
           return;
         }
-
         if (phone.length < 10) {
           toast.error('Invalid phone number');
           return;
@@ -40,10 +38,10 @@ const Login = () => {
         );
 
         if (data.success) {
-          toast.success(data.message); // e.g., "OTP sent to your email"
+          toast.success(data.message);
           navigate('/email-verify');
         } else {
-          toast.error(data.message); // e.g., "User exists"
+          toast.error(data.message);
         }
       } else {
         // --- LOGIN FLOW ---
@@ -55,25 +53,28 @@ const Login = () => {
         if (data.success) {
           toast.success('Login successful');
 
+          // --- UPDATE CONTEXT IMMEDIATELY ---
+          setUserData(data.user);
+          setIsLoggedIn(true);
+
           // --- ROLE-BASED NAVIGATION ---
-          const roleName = data.user.role_name; // backend now sends role_name
+          const roleName = data.user.role_name; // backend sends role_name
 
           if (roleName === 'OWNER' || roleName === 'ADMIN') {
-            navigate('/admin');       // OWNER/Admin
+            navigate('/admin');
           } else if (roleName === 'SUPERVISOR') {
-            navigate('/supervisor'); // Supervisor
+            navigate('/supervisor');
           } else if (roleName === 'WORKER') {
-            navigate('/worker');     // Worker
+            navigate('/worker');
           } else {
-            navigate('/');           // fallback
+            navigate('/');
           }
-
         } else {
           toast.error(data.message || 'Login failed');
         }
       }
     } catch (error) {
-      if (error.response && error.response.data && error.response.data.message) {
+      if (error.response?.data?.message) {
         toast.error(error.response.data.message);
       } else {
         toast.error(error.message || 'Something went wrong');
@@ -84,14 +85,11 @@ const Login = () => {
   return (
     <div className="login">
       <div className="login-container">
-        
         <div className="image-container">
           <img src={assets.img5} alt="login" />
         </div>
 
         <form onSubmit={onSubmitHandler}>
-          
-
           <h2>{state}</h2>
 
           {state === 'Sign Up' && (
@@ -142,20 +140,14 @@ const Login = () => {
 
           <div className="options">
             {state === 'Log In' && (
-              <p onClick={() => navigate('/reset-password')}>
-                Forgot Password?
-              </p>
+              <p onClick={() => navigate('/reset-password')}>Forgot Password?</p>
             )}
 
             <p
               className="text-blue"
-              onClick={() =>
-                setState(state === 'Log In' ? 'Sign Up' : 'Log In')
-              }
+              onClick={() => setState(state === 'Log In' ? 'Sign Up' : 'Log In')}
             >
-              {state === 'Log In'
-                ? 'Create Account'
-                : 'Already have an account'}
+              {state === 'Log In' ? 'Create Account' : 'Already have an account'}
             </p>
           </div>
 

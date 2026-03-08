@@ -18,7 +18,7 @@ router.post("/verify-account", verifyAccount);
 router.post("/resend-otp", resendOTP);
 router.post("/login", login);
 
-router.get("/user", authenticate, getUser); // ✅ protected
+router.get("/user", authenticate, getUser); 
 
 router.post("/send-reset-otp", sendResetOTP);
 router.post("/reset-password", resetPassword);
