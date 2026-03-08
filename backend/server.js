@@ -5,6 +5,7 @@ import dotenv from "dotenv";
 import authRoutes from "./routes/authRoutes.js";
 import cropRoutes from "./routes/cropRoutes.js";
 import taskRoutes from "./routes/taskRoutes.js";
+import fieldRoutes from "./routes/fieldRoutes.js";
 import { db } from "./config/db.js";
 
 dotenv.config();
@@ -20,5 +21,6 @@ app.use(cors({
 app.use("/api/auth", authRoutes);
 app.use("/api/crops", cropRoutes);
 app.use("/api/tasks", taskRoutes);
+app.use("/api/fields", fieldRoutes);
 
 app.listen(process.env.PORT, () => console.log(`Server running on ${process.env.PORT}`));

@@ -1,220 +1,152 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
 import SideNav from '../../components/SideNav';
 import {
-    FiPlus, FiEdit2, FiTrash2, FiSave, FiX, FiSearch,
-    FiMap, FiMapPin, FiUser, FiLayers, FiTrendingUp
+    FiPlus, FiEdit2, FiTrash2, FiSave, FiX,
+    FiSearch, FiMap, FiMapPin, FiUser, FiLayers, FiBell
 } from 'react-icons/fi';
 import './fieldManagement.css';
 
-// Mock data for fields
-const initialFields = [
-    {
-        id: 'F001',
-        name: 'Tea Field Matara',
-        location: 'Matara District, Southern Province',
-        coordinates: '5.9549° N, 80.5550° E',
-        crop: 'Tea',
-        area: '50 Acres',
-        supervisor: 'Saman Perera',
-        supervisorId: 'S001',
-        status: 'active',
-        soilType: 'Red Clay',
-        irrigation: 'Rainfed',
-        lastHarvest: '2026-01-20',
-        productivity: 85
-    },
-    {
-        id: 'F002',
-        name: 'Coconut Field Hakmana',
-        location: 'Hakmana, Matara District',
-        coordinates: '6.0819° N, 80.6509° E',
-        crop: 'Coconut',
-        area: '25 Acres',
-        supervisor: 'Nimali Fernando',
-        supervisorId: 'S002',
-        status: 'active',
-        soilType: 'Sandy Loam',
-        irrigation: 'Drip System',
-        lastHarvest: '2026-01-15',
-        productivity: 92
-    },
-    {
-        id: 'F003',
-        name: 'Rubber Field Matara',
-        location: 'Matara Central Region',
-        coordinates: '5.9456° N, 80.5353° E',
-        crop: 'Rubber',
-        area: '80 Acres',
-        supervisor: 'Kasun Bandara',
-        supervisorId: 'S003',
-        status: 'attention',
-        soilType: 'Laterite',
-        irrigation: 'Natural',
-        lastHarvest: '2026-01-18',
-        productivity: 68
-    },
-    {
-        id: 'F004',
-        name: 'Cinnamon Field Hakmana',
-        location: 'Hakmana Coastal Area',
-        coordinates: '6.0879° N, 80.6419° E',
-        crop: 'Cinnamon',
-        area: '35 Acres',
-        supervisor: 'Saman Perera',
-        supervisorId: 'S001',
-        status: 'active',
-        soilType: 'Sandy Clay',
-        irrigation: 'Sprinkler',
-        lastHarvest: '2026-01-10',
-        productivity: 78
-    }
-];
+const API = 'http://localhost:8081/api';
 
-// Mock supervisors data
-const mockSupervisors = [
-    { id: 'S001', name: 'Saman Perera' },
-    { id: 'S002', name: 'Nimali Fernando' },
-    { id: 'S003', name: 'Kasun Bandara' },
-    { id: 'S004', name: 'Dilshan Silva' },
-    { id: 'S005', name: 'Tharaka Jayasinghe' }
-];
+const emptyForm = {
+    field_name:    '',
+    crop_id:       '',
+    location:      '',
+    area:          '',
+    supervisor_id: ''
+};
 
 const FieldManagement = ({ logo }) => {
-    const [fields, setFields] = useState(initialFields);
+    const [fields,        setFields]        = useState([]);
+    const [crops,         setCrops]         = useState([]);
+    const [supervisors,   setSupervisors]   = useState([]);
     const [selectedField, setSelectedField] = useState(null);
-    const [activeTab, setActiveTab] = useState('fields');
-    const [showAddFieldModal, setShowAddFieldModal] = useState(false);
-    const [editingField, setEditingField] = useState(null);
-    const [searchTerm, setSearchTerm] = useState('');
-    const [filterCrop, setFilterCrop] = useState('all');
-    const [filterStatus, setFilterStatus] = useState('all');
-    const navigate = useNavigate();
+    const [activeTab,     setActiveTab]     = useState('fields');
+    const [showModal,     setShowModal]     = useState(false);
+    const [editingField,  setEditingField]  = useState(null);
+    const [formData,      setFormData]      = useState(emptyForm);
+    const [searchTerm,    setSearchTerm]    = useState('');
+    const [filterCrop,    setFilterCrop]    = useState('all');
+    const [loading,       setLoading]       = useState(false);
 
-    // Form state
-    const [newField, setNewField] = useState({
-        name: '',
-        location: '',
-        coordinates: '',
-        crop: '',
-        area: '',
-        supervisor: '',
-        supervisorId: '',
-        soilType: '',
-        irrigation: '',
-        status: 'active'
-    });
+    useEffect(() => {
+        fetchFields();
+        fetchCrops();
+        fetchSupervisors();
+    }, []);
 
-    // Handle Add Field
-    const handleAddField = () => {
-        if (newField.name && newField.location && newField.crop && newField.area && newField.supervisorId) {
-            const field = {
-                id: `F${String(fields.length + 1).padStart(3, '0')}`,
-                ...newField,
-                lastHarvest: new Date().toISOString().split('T')[0],
-                productivity: 0
-            };
-            setFields([...fields, field]);
-            resetForm();
-            setShowAddFieldModal(false);
-        }
+    const fetchFields = async () => {
+        try {
+            const res  = await fetch(`${API}/fields`);
+            const data = await res.json();
+            setFields(Array.isArray(data) ? data : []);
+        } catch (err) { console.error('Failed to fetch fields:', err); }
     };
 
-    // Handle Edit Field
-    const handleEditField = (field) => {
-        setEditingField(field);
-        setNewField({
-            name: field.name,
-            location: field.location,
-            coordinates: field.coordinates || '',
-            crop: field.crop,
-            area: field.area,
-            supervisor: field.supervisor,
-            supervisorId: field.supervisorId,
-            soilType: field.soilType || '',
-            irrigation: field.irrigation || '',
-            status: field.status
-        });
-        setShowAddFieldModal(true);
+    const fetchCrops = async () => {
+        try {
+            const res  = await fetch(`${API}/crops`);
+            const data = await res.json();
+            setCrops(Array.isArray(data) ? data : []);
+        } catch (err) { console.error('Failed to fetch crops:', err); }
     };
 
-    // Handle Update Field
-    const handleUpdateField = () => {
-        if (editingField) {
-            setFields(fields.map(f => 
-                f.id === editingField.id 
-                    ? { ...f, ...newField }
-                    : f
-            ));
-            resetForm();
-            setEditingField(null);
-            setShowAddFieldModal(false);
-            if (selectedField?.id === editingField.id) {
-                setSelectedField({ ...selectedField, ...newField });
-            }
-        }
+    const fetchSupervisors = async () => {
+        try {
+            const res  = await fetch(`${API}/fields/supervisors`);
+            const data = await res.json();
+            setSupervisors(Array.isArray(data) ? data : []);
+        } catch (err) { console.error('Failed to fetch supervisors:', err); }
     };
 
-    // Handle Delete Field
-    const handleDeleteField = (fieldId) => {
-        if (window.confirm('Are you sure you want to delete this field? All associated data will be removed.')) {
-            setFields(fields.filter(f => f.id !== fieldId));
-            if (selectedField?.id === fieldId) {
-                setSelectedField(null);
-            }
-        }
-    };
-
-    // Reset Form
-    const resetForm = () => {
-        setNewField({
-            name: '',
-            location: '',
-            coordinates: '',
-            crop: '',
-            area: '',
-            supervisor: '',
-            supervisorId: '',
-            soilType: '',
-            irrigation: '',
-            status: 'active'
-        });
-    };
-
-    // Close Modal
-    const closeModal = () => {
-        setShowAddFieldModal(false);
+    const openAddModal = () => {
         setEditingField(null);
-        resetForm();
+        setFormData(emptyForm);
+        setShowModal(true);
     };
 
-    // Handle Supervisor Selection
-    const handleSupervisorSelect = (supervisorId) => {
-        const supervisor = mockSupervisors.find(s => s.id === supervisorId);
-        if (supervisor) {
-            setNewField({
-                ...newField,
-                supervisorId: supervisor.id,
-                supervisor: supervisor.name
+    const openEditModal = (f) => {
+        setEditingField(f);
+        setFormData({
+            field_name:    f.field_name,
+            crop_id:       String(f.crop_id),
+            location:      f.location || '',
+            area:          String(f.area),
+            supervisor_id: String(f.supervisor_id)
+        });
+        setShowModal(true);
+    };
+
+    const closeModal = () => {
+        setShowModal(false);
+        setEditingField(null);
+        setFormData(emptyForm);
+    };
+
+    const handleSave = async () => {
+        const { field_name, crop_id, location, area, supervisor_id } = formData;
+        if (!field_name || !crop_id || !location || !area || !supervisor_id) {
+            alert('Please fill in all required fields (*).');
+            return;
+        }
+        setLoading(true);
+        try {
+            const payload = {
+                field_name,
+                crop_id:       Number(crop_id),
+                location,
+                area:          parseFloat(area),
+                supervisor_id: Number(supervisor_id)
+            };
+            const url    = editingField ? `${API}/fields/${editingField.field_id}` : `${API}/fields`;
+            const method = editingField ? 'PUT' : 'POST';
+            const res    = await fetch(url, {
+                method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
             });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.error || 'Save failed');
+
+            if (editingField) {
+                setFields(prev => prev.map(f => f.field_id === editingField.field_id ? data : f));
+                if (selectedField?.field_id === editingField.field_id) setSelectedField(data);
+            } else {
+                setFields(prev => [...prev, data]);
+            }
+            closeModal();
+        } catch (err) {
+            alert(err.message);
+        } finally {
+            setLoading(false);
         }
     };
 
-    // Filter fields
-    const filteredFields = fields.filter(field => {
-        const matchesSearch = field.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            field.location.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            field.crop.toLowerCase().includes(searchTerm.toLowerCase());
-        const matchesCrop = filterCrop === 'all' || field.crop === filterCrop;
-        const matchesStatus = filterStatus === 'all' || field.status === filterStatus;
-        return matchesSearch && matchesCrop && matchesStatus;
+    const handleDelete = async (fieldId) => {
+        if (!window.confirm('Delete this field? This cannot be undone.')) return;
+        try {
+            const res = await fetch(`${API}/fields/${fieldId}`, { method: 'DELETE' });
+            if (!res.ok) { const d = await res.json(); throw new Error(d.error); }
+            setFields(prev => prev.filter(f => f.field_id !== fieldId));
+            if (selectedField?.field_id === fieldId) setSelectedField(null);
+        } catch (err) {
+            alert('Delete failed: ' + err.message);
+        }
+    };
+
+    const filteredFields = fields.filter(f => {
+        const matchSearch =
+            f.field_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (f.location  || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (f.crop_name || '').toLowerCase().includes(searchTerm.toLowerCase());
+        const matchCrop = filterCrop === 'all' || String(f.crop_id) === filterCrop;
+        return matchSearch && matchCrop;
     });
 
-    // Get unique crops for filter
-    const uniqueCrops = [...new Set(fields.map(f => f.crop))];
+    const setField = (key) => (e) => setFormData(prev => ({ ...prev, [key]: e.target.value }));
 
     return (
-        <div className="field-management-layout">
+        <div className="fm-layout">
             <SideNav
                 role="admin"
                 activeTab={activeTab}
@@ -224,419 +156,266 @@ const FieldManagement = ({ logo }) => {
                 logo={logo}
             />
 
-            <div className="main-content">
-                {/* Header */}
-                <header className="content-header">
-                    <div className="header-left">
-                        <h1 className="page-title">Field Management</h1>
-                        <p className="page-subtitle">Manage plantation fields, locations, and supervisors</p>
+            <div className="fm-main">
+                {/* ── Header ── */}
+                <header className="fm-header">
+                    <div>
+                        <h1 className="fm-title">Field Management</h1>
+                        <p className="fm-subtitle">Manage plantation fields, locations and supervisors</p>
                     </div>
-                    <div className="header-actions">
-                        <button className="add-field-btn" onClick={() => setShowAddFieldModal(true)}>
+                    <div className="fm-header-actions">
+                        <button className="fm-notif-btn">
+                            <FiBell />
+                            <span className="fm-notif-badge">3</span>
+                        </button>
+                        <button className="fm-add-btn" onClick={openAddModal}>
                             <FiPlus /> Add New Field
                         </button>
                     </div>
                 </header>
 
-                {/* Main Content */}
-                <main className="content-body">
-                    <div className="field-management-container">
-                        {/* Left Panel - Fields List */}
-                        <div className="fields-panel">
-                            <div className="panel-header">
+                {/* ── Body ── */}
+                <div className="fm-body">
+                    <div className="fm-grid">
+
+                        {/* ── Left panel ── */}
+                        <div className="fm-left">
+                            <div className="fm-panel-head">
                                 <h2>All Fields ({filteredFields.length})</h2>
                             </div>
 
-                            {/* Search and Filters */}
-                            <div className="search-filter-section">
-                                <div className="search-bar">
-                                    <FiSearch className="search-icon" />
+                            {/* Search + filter in one row */}
+                            <div className="fm-controls">
+                                <div className="fm-search">
+                                    <FiSearch className="fm-search-icon" />
                                     <input
                                         type="text"
-                                        placeholder="Search fields..."
+                                        className="fm-search-input"
+                                        placeholder="Search by name, location or crop..."
                                         value={searchTerm}
                                         onChange={(e) => setSearchTerm(e.target.value)}
                                     />
                                 </div>
-
-                                <div className="filters">
-                                    <select 
-                                        className="filter-select"
-                                        value={filterCrop}
-                                        onChange={(e) => setFilterCrop(e.target.value)}
-                                    >
-                                        <option value="all">All Crops</option>
-                                        {uniqueCrops.map(crop => (
-                                            <option key={crop} value={crop}>{crop}</option>
-                                        ))}
-                                    </select>
-
-                                    <select 
-                                        className="filter-select"
-                                        value={filterStatus}
-                                        onChange={(e) => setFilterStatus(e.target.value)}
-                                    >
-                                        <option value="all">All Status</option>
-                                        <option value="active">Active</option>
-                                        <option value="attention">Needs Attention</option>
-                                    </select>
-                                </div>
+                                <select
+                                    className="fm-filter"
+                                    value={filterCrop}
+                                    onChange={(e) => setFilterCrop(e.target.value)}
+                                >
+                                    <option value="all">All Crops</option>
+                                    {crops.map(c => (
+                                        <option key={c.crop_id} value={String(c.crop_id)}>
+                                            {c.crop_name}
+                                        </option>
+                                    ))}
+                                </select>
                             </div>
 
-                            {/* Fields List */}
-                            <div className="fields-list">
-                                {filteredFields.map(field => (
+                            {/* List */}
+                            <div className="fm-list">
+                                {filteredFields.length > 0 ? filteredFields.map(f => (
                                     <div
-                                        key={field.id}
-                                        className={`field-item ${selectedField?.id === field.id ? 'active' : ''} ${field.status}`}
-                                        onClick={() => setSelectedField(field)}
+                                        key={f.field_id}
+                                        className={`fm-card ${selectedField?.field_id === f.field_id ? 'active' : ''}`}
+                                        onClick={() => setSelectedField(f)}
                                     >
-                                        <div className="field-item-header">
-                                            <div className="field-title-section">
-                                                <h3>{field.name}</h3>
-                                                <span className={`status-badge ${field.status}`}>
-                                                    {field.status === 'active' ? 'Active' : 'Attention'}
-                                                </span>
+                                        {/* Card header row */}
+                                        <div className="fm-card-top">
+                                            <div className="fm-card-title-group">
+                                                <h3 className="fm-card-name">{f.field_name}</h3>
+                                                <span className="fm-card-id">F{String(f.field_id).padStart(3,'0')}</span>
                                             </div>
-                                            <span className="crop-badge">{field.crop}</span>
+                                            <span className="fm-crop-tag">{f.crop_name}</span>
                                         </div>
-                                        
-                                        <div className="field-item-body">
-                                            <div className="field-info-row">
-                                                <FiMapPin className="info-icon" />
-                                                <span>{field.location}</span>
+
+                                        {/* Info rows */}
+                                        <div className="fm-card-info">
+                                            <div className="fm-info-row">
+                                                <FiMapPin className="fm-info-icon" />
+                                                <span>{f.location}</span>
                                             </div>
-                                            <div className="field-info-row">
-                                                <FiLayers className="info-icon" />
-                                                <span>{field.area}</span>
+                                            <div className="fm-info-row">
+                                                <FiLayers className="fm-info-icon" />
+                                                <span>{f.area} Acres</span>
                                             </div>
-                                            <div className="field-info-row">
-                                                <FiUser className="info-icon" />
-                                                <span>{field.supervisor}</span>
+                                            <div className="fm-info-row">
+                                                <FiUser className="fm-info-icon" />
+                                                <span>{f.supervisor_name}</span>
                                             </div>
                                         </div>
 
-                                        <div className="productivity-bar">
-                                            <div className="productivity-label">
-                                                <span>Productivity</span>
-                                                <span className="productivity-value">{field.productivity}%</span>
-                                            </div>
-                                            <div className="progress-bar">
-                                                <div 
-                                                    className="progress-fill" 
-                                                    style={{width: `${field.productivity}%`}}
-                                                ></div>
-                                            </div>
-                                        </div>
-
-                                        <div className="field-item-actions">
-                                            <button
-                                                className="icon-btn edit"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handleEditField(field);
-                                                }}
-                                            >
-                                                <FiEdit2 />
+                                        {/* Actions */}
+                                        <div className="fm-card-actions">
+                                            <button className="fm-btn-edit"
+                                                onClick={(e) => { e.stopPropagation(); openEditModal(f); }}>
+                                                <FiEdit2 /> Edit
                                             </button>
-                                            <button
-                                                className="icon-btn delete"
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handleDeleteField(field.id);
-                                                }}
-                                            >
-                                                <FiTrash2 />
+                                            <button className="fm-btn-delete"
+                                                onClick={(e) => { e.stopPropagation(); handleDelete(f.field_id); }}>
+                                                <FiTrash2 /> Delete
                                             </button>
                                         </div>
                                     </div>
-                                ))}
-
-                                {filteredFields.length === 0 && (
-                                    <div className="empty-state">
-                                        <FiMap className="empty-icon" />
+                                )) : (
+                                    <div className="fm-empty">
+                                        <div className="fm-empty-icon"><FiMap /></div>
                                         <p>No fields found</p>
                                     </div>
                                 )}
                             </div>
                         </div>
 
-                        {/* Right Panel - Field Details */}
-                        <div className="field-details-panel">
+                        {/* ── Right panel ── */}
+                        <div className="fm-right">
                             {selectedField ? (
                                 <>
-                                    <div className="panel-header">
+                                    {/* Detail header */}
+                                    <div className="fm-panel-head">
                                         <div>
-                                            <h2>{selectedField.name}</h2>
-                                            <p className="panel-subtitle">Field ID: {selectedField.id}</p>
-                                        </div>
-                                        <div className="header-badges">
-                                            <span className={`status-indicator ${selectedField.status}`}>
-                                                {selectedField.status === 'active' ? 'Active Field' : 'Needs Attention'}
-                                            </span>
+                                            <h2>{selectedField.field_name}</h2>
+                                            <p className="fm-detail-id">
+                                                Field ID: F{String(selectedField.field_id).padStart(3,'0')}
+                                            </p>
                                         </div>
                                     </div>
 
-                                    {/* Field Information Grid */}
-                                    <div className="field-info-grid">
-                                        <div className="info-card">
-                                            <div className="info-card-icon crop">
-                                                <FiLayers />
-                                            </div>
-                                            <div className="info-card-content">
-                                                <div className="info-label">Crop Type</div>
-                                                <div className="info-value">{selectedField.crop}</div>
+                                    {/* 3 stat cards */}
+                                    <div className="fm-stat-grid">
+                                        <div className="fm-stat">
+                                            <div className="fm-stat-icon crop"><FiLayers /></div>
+                                            <div>
+                                                <p className="fm-stat-label">Crop Type</p>
+                                                <p className="fm-stat-value">{selectedField.crop_name}</p>
                                             </div>
                                         </div>
-
-                                        <div className="info-card">
-                                            <div className="info-card-icon area">
-                                                <FiMap />
-                                            </div>
-                                            <div className="info-card-content">
-                                                <div className="info-label">Field Area</div>
-                                                <div className="info-value">{selectedField.area}</div>
+                                        <div className="fm-stat">
+                                            <div className="fm-stat-icon area"><FiMap /></div>
+                                            <div>
+                                                <p className="fm-stat-label">Field Area</p>
+                                                <p className="fm-stat-value">{selectedField.area} Acres</p>
                                             </div>
                                         </div>
-
-                                        <div className="info-card">
-                                            <div className="info-card-icon supervisor">
-                                                <FiUser />
-                                            </div>
-                                            <div className="info-card-content">
-                                                <div className="info-label">Supervisor</div>
-                                                <div className="info-value">{selectedField.supervisor}</div>
-                                            </div>
-                                        </div>
-
-                                        <div className="info-card">
-                                            <div className="info-card-icon productivity">
-                                                <FiTrendingUp />
-                                            </div>
-                                            <div className="info-card-content">
-                                                <div className="info-label">Productivity</div>
-                                                <div className="info-value">{selectedField.productivity}%</div>
+                                        <div className="fm-stat">
+                                            <div className="fm-stat-icon sup"><FiUser /></div>
+                                            <div>
+                                                <p className="fm-stat-label">Supervisor</p>
+                                                <p className="fm-stat-value">{selectedField.supervisor_name}</p>
                                             </div>
                                         </div>
                                     </div>
 
-                                    {/* Detailed Information */}
-                                    <div className="detail-sections">
-                                        <div className="detail-section">
-                                            <h3>Location Details</h3>
-                                            <div className="detail-content">
-                                                <div className="detail-row">
-                                                    <span className="detail-label">Address:</span>
-                                                    <span className="detail-value">{selectedField.location}</span>
-                                                </div>
-                                                {selectedField.coordinates && (
-                                                    <div className="detail-row">
-                                                        <span className="detail-label">Coordinates:</span>
-                                                        <span className="detail-value">{selectedField.coordinates}</span>
-                                                    </div>
-                                                )}
+                                    {/* Detail rows */}
+                                    <div className="fm-detail-body">
+                                        <div className="fm-detail-section">
+                                            <h4>Location</h4>
+                                            <div className="fm-detail-row">
+                                                <span>Address</span>
+                                                <span>{selectedField.location || '—'}</span>
                                             </div>
                                         </div>
 
-                                        <div className="detail-section">
-                                            <h3>Field Characteristics</h3>
-                                            <div className="detail-content">
-                                                {selectedField.soilType && (
-                                                    <div className="detail-row">
-                                                        <span className="detail-label">Soil Type:</span>
-                                                        <span className="detail-value">{selectedField.soilType}</span>
-                                                    </div>
-                                                )}
-                                                {selectedField.irrigation && (
-                                                    <div className="detail-row">
-                                                        <span className="detail-label">Irrigation:</span>
-                                                        <span className="detail-value">{selectedField.irrigation}</span>
-                                                    </div>
-                                                )}
-                                                <div className="detail-row">
-                                                    <span className="detail-label">Last Harvest:</span>
-                                                    <span className="detail-value">{selectedField.lastHarvest}</span>
-                                                </div>
+                                        <div className="fm-detail-section">
+                                            <h4>Supervisor</h4>
+                                            <div className="fm-detail-row">
+                                                <span>Name</span>
+                                                <span>{selectedField.supervisor_name}</span>
                                             </div>
-                                        </div>
-
-                                        <div className="detail-section">
-                                            <h3>Supervisor Information</h3>
-                                            <div className="detail-content">
-                                                <div className="detail-row">
-                                                    <span className="detail-label">Name:</span>
-                                                    <span className="detail-value">{selectedField.supervisor}</span>
-                                                </div>
-                                                <div className="detail-row">
-                                                    <span className="detail-label">Supervisor ID:</span>
-                                                    <span className="detail-value">{selectedField.supervisorId}</span>
-                                                </div>
+                                            <div className="fm-detail-row">
+                                                <span>User ID</span>
+                                                <span>#{selectedField.supervisor_id}</span>
                                             </div>
                                         </div>
                                     </div>
 
-                                    {/* Action Buttons */}
-                                    <div className="detail-actions">
-                                        <button 
-                                            className="action-btn primary"
-                                            onClick={() => handleEditField(selectedField)}
-                                        >
+                                    {/* Detail actions */}
+                                    <div className="fm-detail-actions">
+                                        <button className="fm-action-edit"
+                                            onClick={() => openEditModal(selectedField)}>
                                             <FiEdit2 /> Edit Field
                                         </button>
-                                        <button 
-                                            className="action-btn danger"
-                                            onClick={() => handleDeleteField(selectedField.id)}
-                                        >
+                                        <button className="fm-action-delete"
+                                            onClick={() => handleDelete(selectedField.field_id)}>
                                             <FiTrash2 /> Delete Field
                                         </button>
                                     </div>
                                 </>
                             ) : (
-                                <div className="empty-state large">
-                                    <FiMap className="empty-icon" />
-                                    <h3>Select a field to view details</h3>
-                                    <p>Choose a field from the left panel to see detailed information</p>
+                                <div className="fm-empty large">
+                                    <div className="fm-empty-icon"><FiMap /></div>
+                                    <h3>Select a Field</h3>
+                                    <p>Choose a field from the left panel to see its details</p>
                                 </div>
                             )}
                         </div>
+
                     </div>
-                </main>
+                </div>
             </div>
 
-            {/* Add/Edit Field Modal */}
-            {showAddFieldModal && (
-                <div className="modal-overlay" onClick={closeModal}>
-                    <div className="modal large" onClick={(e) => e.stopPropagation()}>
-                        <div className="modal-header">
+            {/* ── Modal ── */}
+            {showModal && (
+                <div className="fm-overlay" onClick={closeModal}>
+                    <div className="fm-modal" onClick={(e) => e.stopPropagation()}>
+                        <div className="fm-modal-head">
                             <h2>{editingField ? 'Edit Field' : 'Add New Field'}</h2>
-                            <button className="close-btn" onClick={closeModal}>
-                                <FiX />
-                            </button>
+                            <button className="fm-modal-close" onClick={closeModal}><FiX /></button>
                         </div>
-                        <div className="modal-body">
-                            <div className="form-section">
+
+                        <div className="fm-modal-body">
+                            <div className="fm-form-section">
                                 <h3>Basic Information</h3>
-                                <div className="form-row">
-                                    <div className="form-group">
+                                <div className="fm-form-row">
+                                    <div className="fm-form-group">
                                         <label>Field Name *</label>
-                                        <input
-                                            type="text"
-                                            placeholder="e.g., Tea Field Matara"
-                                            value={newField.name}
-                                            onChange={(e) => setNewField({ ...newField, name: e.target.value })}
-                                        />
+                                        <input type="text" placeholder="e.g. North Hill Field"
+                                            value={formData.field_name} onChange={setField('field_name')} />
                                     </div>
-                                    <div className="form-group">
+                                    <div className="fm-form-group">
                                         <label>Crop Type *</label>
-                                        <select
-                                            value={newField.crop}
-                                            onChange={(e) => setNewField({ ...newField, crop: e.target.value })}
-                                        >
+                                        <select value={formData.crop_id} onChange={setField('crop_id')}>
                                             <option value="">Select Crop</option>
-                                            <option value="Tea">Tea</option>
-                                            <option value="Coconut">Coconut</option>
-                                            <option value="Rubber">Rubber</option>
-                                            <option value="Cinnamon">Cinnamon</option>
+                                            {crops.map(c => (
+                                                <option key={c.crop_id} value={c.crop_id}>{c.crop_name}</option>
+                                            ))}
                                         </select>
                                     </div>
                                 </div>
-
-                                <div className="form-row">
-                                    <div className="form-group">
-                                        <label>Field Area *</label>
-                                        <input
-                                            type="text"
-                                            placeholder="e.g., 50 Acres"
-                                            value={newField.area}
-                                            onChange={(e) => setNewField({ ...newField, area: e.target.value })}
-                                        />
+                                <div className="fm-form-row">
+                                    <div className="fm-form-group">
+                                        <label>Location / Address *</label>
+                                        <input type="text" placeholder="e.g. Matara District"
+                                            value={formData.location} onChange={setField('location')} />
                                     </div>
-                                    <div className="form-group">
-                                        <label>Status</label>
-                                        <select
-                                            value={newField.status}
-                                            onChange={(e) => setNewField({ ...newField, status: e.target.value })}
-                                        >
-                                            <option value="active">Active</option>
-                                            <option value="attention">Needs Attention</option>
-                                        </select>
+                                    <div className="fm-form-group">
+                                        <label>Area (Acres) *</label>
+                                        <input type="number" step="0.01" min="0" placeholder="e.g. 5.50"
+                                            value={formData.area} onChange={setField('area')} />
                                     </div>
                                 </div>
                             </div>
 
-                            <div className="form-section">
-                                <h3>Location Details</h3>
-                                <div className="form-group">
-                                    <label>Location/Address *</label>
-                                    <input
-                                        type="text"
-                                        placeholder="e.g., Matara District, Southern Province"
-                                        value={newField.location}
-                                        onChange={(e) => setNewField({ ...newField, location: e.target.value })}
-                                    />
-                                </div>
-                                <div className="form-group">
-                                    <label>GPS Coordinates (Optional)</label>
-                                    <input
-                                        type="text"
-                                        placeholder="e.g., 5.9549° N, 80.5550° E"
-                                        value={newField.coordinates}
-                                        onChange={(e) => setNewField({ ...newField, coordinates: e.target.value })}
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="form-section">
-                                <h3>Field Characteristics</h3>
-                                <div className="form-row">
-                                    <div className="form-group">
-                                        <label>Soil Type</label>
-                                        <input
-                                            type="text"
-                                            placeholder="e.g., Red Clay"
-                                            value={newField.soilType}
-                                            onChange={(e) => setNewField({ ...newField, soilType: e.target.value })}
-                                        />
-                                    </div>
-                                    <div className="form-group">
-                                        <label>Irrigation System</label>
-                                        <input
-                                            type="text"
-                                            placeholder="e.g., Drip System"
-                                            value={newField.irrigation}
-                                            onChange={(e) => setNewField({ ...newField, irrigation: e.target.value })}
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="form-section">
+                            <div className="fm-form-section">
                                 <h3>Supervisor Assignment</h3>
-                                <div className="form-group">
+                                <div className="fm-form-group">
                                     <label>Assign Supervisor *</label>
-                                    <select
-                                        value={newField.supervisorId}
-                                        onChange={(e) => handleSupervisorSelect(e.target.value)}
-                                    >
+                                    <select value={formData.supervisor_id} onChange={setField('supervisor_id')}>
                                         <option value="">Select Supervisor</option>
-                                        {mockSupervisors.map(supervisor => (
-                                            <option key={supervisor.id} value={supervisor.id}>
-                                                {supervisor.name} ({supervisor.id})
+                                        {supervisors.map(s => (
+                                            <option key={s.user_id} value={s.user_id}>
+                                                {s.full_name} — {s.email}
                                             </option>
                                         ))}
                                     </select>
+                                    {supervisors.length === 0 && (
+                                        <p className="fm-hint">⚠ No active supervisors found.</p>
+                                    )}
                                 </div>
                             </div>
                         </div>
-                        <div className="modal-footer">
-                            <button className="btn-secondary" onClick={closeModal}>
-                                Cancel
-                            </button>
-                            <button
-                                className="btn-primary"
-                                onClick={editingField ? handleUpdateField : handleAddField}
-                            >
-                                <FiSave /> {editingField ? 'Update' : 'Save'} Field
+
+                        <div className="fm-modal-foot">
+                            <button className="fm-btn-cancel" onClick={closeModal}>Cancel</button>
+                            <button className="fm-btn-save" onClick={handleSave} disabled={loading}>
+                                {loading ? 'Saving…' : <><FiSave /> {editingField ? 'Update' : 'Save'} Field</>}
                             </button>
                         </div>
                     </div>
