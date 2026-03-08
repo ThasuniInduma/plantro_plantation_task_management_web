@@ -1,15 +1,11 @@
 import express from "express";
-
-import {
-  getTasksByCrop,
-  addTask,
-  deleteTask
-} from "../controllers/taskController.js";
+import { getTasksByCrop, addTask, updateTask, deleteTask } from "../controllers/taskController.js";
 
 const router = express.Router();
 
-router.get("/:cropId", getTasksByCrop);
+router.get("/crop/:cropId", getTasksByCrop);
 router.post("/", addTask);
-router.delete("/:id", deleteTask);
+router.put("/:taskId", updateTask);
+router.delete("/:taskId", deleteTask);
 
 export default router;

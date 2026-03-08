@@ -1,66 +1,56 @@
 import { db } from "../config/db.js";
 
-export const getTasksByCrop = (req, res) => {
-
-  const sql = "SELECT * FROM tasks WHERE crop_id=?";
-
-  db.query(sql, [req.params.cropId], (err, result) => {
-
-    if (err) return res.status(500).json(err);
-
-    const tasks = result.map(t => ({
-      id: t.task_id,
-      name: t.task_name,
-      description: t.description,
-      frequency: t.frequency_days,
-      manHours: t.estimated_hours
-    }));
-
+// Get all tasks for a specific crop
+export const getTasksByCrop = async (req, res) => {
+  try {
+    const cropId = req.params.cropId;
+    const [tasks] = await db.query("SELECT * FROM tasks WHERE crop_id = ?", [cropId]);
     res.json(tasks);
-
-  });
-
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Database error" });
+  }
 };
 
-export const addTask = (req, res) => {
-
-  const { name, description, frequency, manHours, cropId } = req.body;
-
-  const sql =
-    `INSERT INTO tasks
-    (crop_id, task_name, description, frequency_days, estimated_hours)
-    VALUES (?, ?, ?, ?, ?)`;
-
-  db.query(
-    sql,
-    [cropId, name, description, frequency, manHours],
-    (err, result) => {
-
-      if (err) return res.status(500).json(err);
-
-      res.json({
-        id: result.insertId,
-        name,
-        description,
-        frequency,
-        manHours
-      });
-
-    }
-  );
-
+// Add a task
+export const addTask = async (req, res) => {
+  try {
+    const { crop_id, task_name, description, frequency_days, estimated_hours } = req.body;
+    const [result] = await db.query(
+      "INSERT INTO tasks (crop_id, task_name, description, frequency_days, estimated_hours) VALUES (?, ?, ?, ?, ?)",
+      [crop_id, task_name, description, frequency_days, estimated_hours]
+    );
+    res.status(201).json({ task_id: result.insertId, crop_id, task_name, description, frequency_days, estimated_hours });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Database error" });
+  }
 };
 
-export const deleteTask = (req, res) => {
+// Update task
+export const updateTask = async (req, res) => {
+  try {
+    const { taskId } = req.params;
+    const { task_name, description, frequency_days, estimated_hours } = req.body;
+    await db.query(
+      "UPDATE tasks SET task_name=?, description=?, frequency_days=?, estimated_hours=? WHERE task_id=?",
+      [task_name, description, frequency_days, estimated_hours, taskId]
+    );
+    res.json({ taskId, task_name, description, frequency_days, estimated_hours });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Database error" });
+  }
+};
 
-  const sql = "DELETE FROM tasks WHERE task_id=?";
-
-  db.query(sql, [req.params.id], (err) => {
-
-    if (err) return res.status(500).json(err);
-
-    res.json({ message: "Task deleted" });
-
-  });
-
+// Delete task
+export const deleteTask = async (req, res) => {
+  try {
+    const { taskId } = req.params;
+    await db.query("DELETE FROM tasks WHERE task_id=?", [taskId]);
+    res.json({ taskId });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Database error" });
+  }
 };
