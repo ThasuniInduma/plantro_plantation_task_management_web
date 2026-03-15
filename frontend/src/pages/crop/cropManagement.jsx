@@ -513,12 +513,12 @@ const CropManagement = ({ logo }) => {
                                             disabled={!!editingCropTask}
                                             autoComplete="off"
                                         />
-                                        {taskForm.task_id && !editingCropTask && (
+                                        {/* {taskForm.task_id && !editingCropTask && (
                                             <span className="existing-badge">
                                                 <FiCheckCircle />
                                                 Existing task — name &amp; description auto-filled
                                             </span>
-                                        )}
+                                        )} */}
                                     </div>
                                 </div>
 
@@ -552,7 +552,7 @@ const CropManagement = ({ logo }) => {
                                         ) : (
                                             taskSearch.length > 0 && (
                                                 <div className="suggestions-header" style={{ color: 'var(--text-secondary)' }}>
-                                                    No match — will be saved as new task
+                                                    No match - will be saved as new task
                                                 </div>
                                             )
                                         )}
@@ -576,11 +576,11 @@ const CropManagement = ({ logo }) => {
                             <div className="form-group">
                                 <label>
                                     Description *
-                                    {taskForm.task_id && !editingCropTask && (
+                                    {/* {taskForm.task_id && !editingCropTask && (
                                         <span className="locked-label">
                                             <FiCheckCircle /> Auto-filled · locked
                                         </span>
-                                    )}
+                                    )} */}
                                 </label>
                                 <textarea
                                     placeholder="What does this task involve?"
