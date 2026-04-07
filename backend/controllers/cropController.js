@@ -72,3 +72,21 @@ export const updateCrop = async (req, res) => {
     res.status(500).json({ error: "Database error" });
   }
 };
+
+// GET fields by crop_id
+export const getFieldsByCrop = async (req, res) => {
+  try {
+    const sql = `
+      SELECT f.*, u.full_name AS supervisor_name
+      FROM fields f
+      LEFT JOIN supervisors s ON f.supervisor_id = s.supervisor_id
+      LEFT JOIN users u ON s.user_id = u.user_id
+      WHERE f.crop_id = ?
+    `;
+    const [rows] = await db.query(sql, [req.params.cropId]);
+    res.json(rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Database error" });
+  }
+};

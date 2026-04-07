@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import SideNav from '../../components/SideNav';
 import {
     FiPlus, FiEdit2, FiTrash2, FiSave, FiX, FiSearch,
-    FiClock, FiUsers, FiBell, FiCheckCircle, FiLayers, FiList
+    FiClock, FiUsers, FiBell, FiCheckCircle, FiLayers, FiList,
+    FiMapPin
 } from 'react-icons/fi';
 import './cropManagement.css';
 
@@ -12,6 +13,7 @@ const CropManagement = ({ logo }) => {
     const [crops, setCrops] = useState([]);
     const [selectedCrop, setSelectedCrop] = useState(null);
     const [allTasks, setAllTasks] = useState([]);
+    const [cropFields, setCropFields] = useState([]);
     const [activeTab, setActiveTab] = useState('crops');
     const [showAddCropModal, setShowAddCropModal] = useState(false);
     const [showAddTaskModal, setShowAddTaskModal] = useState(false);
@@ -42,7 +44,6 @@ const CropManagement = ({ logo }) => {
                 const cropData = await cropRes.json();
                 const taskData = await tasksRes.json();
 
-                console.log('Loaded allTasks:', taskData);
                 setAllTasks(Array.isArray(taskData) ? taskData : []);
 
                 const cropsWithTasks = await Promise.all(
@@ -86,12 +87,32 @@ const CropManagement = ({ logo }) => {
     }, []);
 
     // ── Helpers ──────────────────────────────────────────────────────────────
-    const refreshCropTasks = async (cropId) => {
-        const r = await fetch(`${BASE}/tasks/crop/${cropId}`);
-        const tasks = await r.json();
-        const safe = Array.isArray(tasks) ? tasks : [];
-        setCrops(prev => prev.map(c => c.id === cropId ? { ...c, tasks: safe } : c));
-        setSelectedCrop(prev => prev?.id === cropId ? { ...prev, tasks: safe } : prev);
+    const refreshCropData = async (cropId) => {
+        try {
+            const [taskRes, fieldRes] = await Promise.all([
+                fetch(`${BASE}/tasks/crop/${cropId}`),
+                fetch(`${BASE}/crops/${cropId}/fields`)
+            ]);
+            const tasks = await taskRes.json();
+            const fields = await fieldRes.json();
+            const safeTasks = Array.isArray(tasks) ? tasks : [];
+            const safeFields = Array.isArray(fields) ? fields : [];
+
+            setCrops(prev => prev.map(c =>
+                c.id === cropId ? { ...c, tasks: safeTasks } : c
+            ));
+            setSelectedCrop(prev =>
+                prev?.id === cropId ? { ...prev, tasks: safeTasks } : prev
+            );
+            setCropFields(safeFields);
+        } catch (err) {
+            console.error('Refresh failed:', err);
+        }
+    };
+
+    const handleSelectCrop = (crop) => {
+        setSelectedCrop(crop);
+        refreshCropData(crop.id);
     };
 
     const closeModals = () => {
@@ -182,7 +203,10 @@ const CropManagement = ({ logo }) => {
         try {
             await fetch(`${BASE}/crops/${cropId}`, { method: 'DELETE' });
             setCrops(prev => prev.filter(c => c.id !== cropId));
-            if (selectedCrop?.id === cropId) setSelectedCrop(null);
+            if (selectedCrop?.id === cropId) {
+                setSelectedCrop(null);
+                setCropFields([]);
+            }
         } catch { alert('Failed to delete crop.'); }
     };
 
@@ -216,7 +240,7 @@ const CropManagement = ({ logo }) => {
                 ]);
             }
 
-            await refreshCropTasks(selectedCrop.id);
+            await refreshCropData(selectedCrop.id);
             closeModals();
         } catch { alert('Failed to add task.'); }
     };
@@ -244,7 +268,7 @@ const CropManagement = ({ logo }) => {
                     estimated_man_hours: Number(taskForm.estimated_man_hours)
                 })
             });
-            await refreshCropTasks(selectedCrop.id);
+            await refreshCropData(selectedCrop.id);
             closeModals();
         } catch { alert('Failed to update task.'); }
     };
@@ -253,7 +277,7 @@ const CropManagement = ({ logo }) => {
         if (!window.confirm('Remove this task from the crop?')) return;
         try {
             await fetch(`${BASE}/tasks/${cropTaskId}`, { method: 'DELETE' });
-            await refreshCropTasks(selectedCrop.id);
+            await refreshCropData(selectedCrop.id);
         } catch { alert('Failed to delete task.'); }
     };
 
@@ -263,6 +287,7 @@ const CropManagement = ({ logo }) => {
     );
 
     const taskAccents = ['#4f7942', '#7cb342', '#2e7d32', '#558b2f', '#33691e'];
+    const fieldAccents = ['#1565c0', '#0288d1', '#00838f', '#00695c', '#2e7d32'];
 
     return (
         <div className="crop-management-layout">
@@ -279,7 +304,7 @@ const CropManagement = ({ logo }) => {
                 <header className="content-header">
                     <div className="header-left">
                         <h1 className="page-title">Crop Management</h1>
-                        <p className="page-subtitle">Manage crops, define tasks, and set frequencies</p>
+                        <p className="page-subtitle">Manage crops, define tasks, and view fields</p>
                     </div>
                     <div className="header-actions">
                         <button className="notification-btn">
@@ -322,7 +347,7 @@ const CropManagement = ({ logo }) => {
                                     <div
                                         key={crop.id}
                                         className={`crop-item ${selectedCrop?.id === crop.id ? 'active' : ''}`}
-                                        onClick={() => setSelectedCrop(crop)}
+                                        onClick={() => handleSelectCrop(crop)}
                                     >
                                         <div className="crop-item-header">
                                             <h3>{crop.name}</h3>
@@ -354,15 +379,18 @@ const CropManagement = ({ logo }) => {
                             </div>
                         </div>
 
-                        {/* ── Tasks Panel ── */}
+                        {/* ── Detail Panel ── */}
                         <div className="tasks-panel">
                             {selectedCrop ? (
                                 <>
                                     <div className="panel-header tasks-panel-header">
                                         <div className="tasks-header-info">
-                                            <h2>Tasks for <span className="crop-name-highlight">{selectedCrop.name}</span></h2>
+                                            <h2>
+                                                <span className="crop-name-highlight">{selectedCrop.name}</span>
+                                            </h2>
                                             <p className="panel-subtitle">
-                                                {selectedCrop.tasks?.length || 0} task{selectedCrop.tasks?.length !== 1 ? 's' : ''} defined
+                                                {selectedCrop.tasks?.length || 0} task{selectedCrop.tasks?.length !== 1 ? 's' : ''}
+                                                {cropFields.length > 0 && ` · ${cropFields.length} field${cropFields.length !== 1 ? 's' : ''}`}
                                             </p>
                                         </div>
                                         <button className="add-btn" onClick={() => {
@@ -379,6 +407,47 @@ const CropManagement = ({ logo }) => {
                                         }}>
                                             <FiPlus /> Add Task
                                         </button>
+                                    </div>
+
+                                    {/* ── Fields Section ── */}
+                                    {cropFields.length > 0 && (
+                                        <div className="fields-section">
+                                            <div className="fields-section-header">
+                                                <FiMapPin className="section-icon" />
+                                                <span>Fields Growing {selectedCrop.name}</span>
+                                                <span className="section-badge">{cropFields.length}</span>
+                                            </div>
+                                            <div className="fields-grid">
+                                                {cropFields.map((field, idx) => (
+                                                    <div
+                                                        key={field.field_id}
+                                                        className="field-card"
+                                                        style={{ '--field-accent': fieldAccents[idx % fieldAccents.length] }}
+                                                    >
+                                                        <div className="field-card-top">
+                                                            <h4>{field.field_name}</h4>
+                                                            <span className="field-area">{field.area} ha</span>
+                                                        </div>
+                                                        <p className="field-location">
+                                                            <FiMapPin className="pin-icon" /> {field.location}
+                                                        </p>
+                                                        {field.supervisor_name && (
+                                                            <div className="field-supervisor">
+                                                                <FiUsers className="meta-icon" />
+                                                                <span>{field.supervisor_name}</span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* ── Tasks Section ── */}
+                                    <div className="tasks-section-header">
+                                        <FiLayers className="section-icon" />
+                                        <span>Tasks Defined for {selectedCrop.name}</span>
+                                        <span className="section-badge">{selectedCrop.tasks?.length || 0}</span>
                                     </div>
 
                                     <div className="tasks-grid">
@@ -443,7 +512,7 @@ const CropManagement = ({ logo }) => {
                                 <div className="empty-state large">
                                     <div className="empty-icon"><FiCheckCircle /></div>
                                     <h3>Select a Crop</h3>
-                                    <p>Choose a crop from the left panel to view and manage its tasks.</p>
+                                    <p>Choose a crop from the left panel to view its fields and tasks.</p>
                                 </div>
                             )}
                         </div>
@@ -513,16 +582,9 @@ const CropManagement = ({ logo }) => {
                                             disabled={!!editingCropTask}
                                             autoComplete="off"
                                         />
-                                        {/* {taskForm.task_id && !editingCropTask && (
-                                            <span className="existing-badge">
-                                                <FiCheckCircle />
-                                                Existing task — name &amp; description auto-filled
-                                            </span>
-                                        )} */}
                                     </div>
                                 </div>
 
-                                {/* Dropdown */}
                                 {showSuggestions && !editingCropTask && (
                                     <div className="suggestions-dropdown">
                                         {suggestions.length > 0 ? (
@@ -552,7 +614,7 @@ const CropManagement = ({ logo }) => {
                                         ) : (
                                             taskSearch.length > 0 && (
                                                 <div className="suggestions-header" style={{ color: 'var(--text-secondary)' }}>
-                                                    No match - will be saved as new task
+                                                    No match — will be saved as new task
                                                 </div>
                                             )
                                         )}
@@ -572,16 +634,8 @@ const CropManagement = ({ logo }) => {
                                 )}
                             </div>
 
-                            {/* Description */}
                             <div className="form-group">
-                                <label>
-                                    Description *
-                                    {/* {taskForm.task_id && !editingCropTask && (
-                                        <span className="locked-label">
-                                            <FiCheckCircle /> Auto-filled · locked
-                                        </span>
-                                    )} */}
-                                </label>
+                                <label>Description *</label>
                                 <textarea
                                     placeholder="What does this task involve?"
                                     value={taskForm.description}
