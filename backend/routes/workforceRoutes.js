@@ -1,43 +1,54 @@
 import express from "express";
 import {
   getAllWorkers,
-  getWorkerById,
   createWorker,
   updateWorker,
   deleteWorker,
-  toggleWorkerStatus,
-  toggleAvailability,
-  changeWorkerRole,
-  assignTask,
+  updateWorkerStatus,
+  promoteWorkerToSupervisor,
+  updateSupervisorField,
+  updateWorkerAvailability,
+  getWorkerTasks,
   getAllTasks,
   getAllFields,
-  getWorkerTaskHistory,
+  getUnassignedFields,
+  assignTask,
+  demoteSupervisorToWorker,
 } from "../controllers/workforceController.js";
+
 import { authenticate } from "../middleware/authenticate.js";
 
 const router = express.Router();
 
-// All workforce routes require authentication
 router.use(authenticate);
 
-// ── Workers CRUD ──────────────────────────────
-router.get("/workers", getAllWorkers);
-router.get("/workers/:userId", getWorkerById);
-router.post("/workers", createWorker);
-router.put("/workers/:userId", updateWorker);
-router.delete("/workers/:userId", deleteWorker);
+/* ── Workers ────────────────────────────────────────────── */
+router.get("/workers",                      getAllWorkers);
+router.post("/workers",                     createWorker);
+router.put("/workers/:userId",              updateWorker);
+router.delete("/workers/:userId",           deleteWorker);
 
-// ── Status & Availability ─────────────────────
-router.put("/workers/:userId/status", toggleWorkerStatus);
-router.put("/workers/:userId/role", changeWorkerRole);
-router.put("/workers/:workerId/availability", toggleAvailability);
+/* ── Status & availability ───────────────────────────────── */
+router.put("/workers/:userId/status",                  updateWorkerStatus);
+router.put("/workers/:workerId/availability",           updateWorkerAvailability);
 
-// ── Task Assignment ───────────────────────────
-router.post("/assign-task", assignTask);
-router.get("/workers/:workerId/tasks", getWorkerTaskHistory);
+/* ── Role promotion ──────────────────────────────────────── */
+router.put("/workers/:userId/promote",      promoteWorkerToSupervisor);
+router.put("/workers/:userId/demote",  demoteSupervisorToWorker);
 
-// ── Dropdowns ────────────────────────────────
-router.get("/tasks", getAllTasks);
-router.get("/fields", getAllFields);
+
+/* ── Supervisor field assignment ─────────────────────────── */
+router.put("/supervisors/:userId/field",    updateSupervisorField);
+
+/* ── Task history ────────────────────────────────────────── */
+router.get("/workers/:workerId/tasks",      getWorkerTasks);
+
+/* ── Dropdowns ───────────────────────────────────────────── */
+router.get("/tasks",                        getAllTasks);
+router.get("/fields",                       getAllFields);
+router.get("/fields/unassigned",            getUnassignedFields);
+
+/* ── Task assignment ─────────────────────────────────────── */
+router.post("/assign-task",                 assignTask);
 
 export default router;

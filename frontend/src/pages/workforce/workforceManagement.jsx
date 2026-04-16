@@ -6,13 +6,14 @@ import {
     FiBell, FiClock, FiMapPin, FiPhone, FiMail,
     FiUser, FiAward, FiTrendingUp, FiClipboard,
     FiCheckCircle, FiCalendar, FiRefreshCw, FiAlertCircle,
-    FiList
+    FiList, FiLock, FiEye, FiEyeOff, FiShield, FiLayers
 } from 'react-icons/fi';
 import './workforceManagement.css';
+import axios from "axios";
 
 const API_BASE = 'http://localhost:8081/api/workforce';
 
-// ─── small helper ────────────────────────────────────────────
+// ─── API helper ───────────────────────────────────────────
 const apiFetch = async (url, options = {}) => {
     const res = await fetch(url, {
         credentials: 'include',
@@ -24,6 +25,7 @@ const apiFetch = async (url, options = {}) => {
     return data;
 };
 
+// ─── Constants ────────────────────────────────────────────
 const SPECIALTY_OPTIONS = [
     'Tea', 'Coconut', 'Rubber', 'Cinnamon',
     'Tuning', 'Plucking', 'Harvesting', 'Tapping',
@@ -36,16 +38,16 @@ const LOCATION_OPTIONS = [
     'Ratnapura District', 'Badulla District'
 ];
 
-const EMPTY_WORKER = {
-    name: '', email: '', phone: '', role: 'Worker',
-    location: '', specialty: [], manHoursPerDay: ''
+const EMPTY_WORKER_FORM = {
+    name: '', email: '', phone: '', password: '', role: 'Worker',
+    location: '', specialty: [], manHoursPerDay: '', field_id: ''
 };
 
 const EMPTY_TASK = {
     task_id: '', field_id: '', hoursRequired: '', dueDate: '', remarks: ''
 };
 
-// ─── Toast notification ──────────────────────────────────────
+// ─── Toast ────────────────────────────────────────────────
 const Toast = ({ message, type, onClose }) => (
     <div className={`toast toast-${type}`}>
         {type === 'success' ? <FiCheckCircle /> : <FiAlertCircle />}
@@ -54,40 +56,68 @@ const Toast = ({ message, type, onClose }) => (
     </div>
 );
 
-// ─── Main component ──────────────────────────────────────────
+// ─── Password input with show/hide ───────────────────────
+const PasswordInput = ({ value, onChange, placeholder = 'Enter password' }) => {
+    const [show, setShow] = useState(false);
+    return (
+        <div className="password-wrapper">
+            <input
+                type={show ? 'text' : 'password'}
+                placeholder={placeholder}
+                value={value}
+                onChange={onChange}
+            />
+            <button
+                type="button"
+                className="password-toggle"
+                onClick={() => setShow(s => !s)}
+                tabIndex={-1}
+            >
+                {show ? <FiEyeOff /> : <FiEye />}
+            </button>
+        </div>
+    );
+};
+
+// ─── Main component ───────────────────────────────────────
 const WorkforceManagement = ({ logo }) => {
-    const [workers, setWorkers] = useState([]);
-    const [tasks, setTasks] = useState([]);       // available tasks for dropdown
-    const [fields, setFields] = useState([]);      // available fields for dropdown
+    const [workers, setWorkers]               = useState([]);
+    const [tasks, setTasks]                   = useState([]);
+    const [fields, setFields]                 = useState([]);
+    const [unassignedFields, setUnassignedFields] = useState([]);
     const [selectedWorker, setSelectedWorker] = useState(null);
-    const [workerHistory, setWorkerHistory] = useState([]);
-    const [activeTab, setActiveTab] = useState('workforce');
-    const [detailTab, setDetailTab] = useState('overview'); // 'overview' | 'history'
+    const [workerHistory, setWorkerHistory]   = useState([]);
+    const [activeTab, setActiveTab]           = useState('workforce');
+    const [detailTab, setDetailTab]           = useState('overview');
 
-    const [showAddModal, setShowAddModal] = useState(false);
+    const [showAddModal, setShowAddModal]       = useState(false);
     const [showAssignModal, setShowAssignModal] = useState(false);
-    const [editingWorker, setEditingWorker] = useState(null);
+    const [showFieldModal, setShowFieldModal]   = useState(false); // supervisor field assign
+    const [showPromoteModal, setShowPromoteModal] = useState(false);
+    const [editingWorker, setEditingWorker]     = useState(null);
 
-    const [newWorker, setNewWorker] = useState(EMPTY_WORKER);
+    const [form, setForm]                 = useState(EMPTY_WORKER_FORM);
     const [taskAssignment, setTaskAssignment] = useState(EMPTY_TASK);
+    const [promoteFieldId, setPromoteFieldId] = useState('');
+    const [supervisorFieldId, setSupervisorFieldId] = useState('');
 
-    const [searchTerm, setSearchTerm] = useState('');
+    const [searchTerm, setSearchTerm]     = useState('');
     const [filterStatus, setFilterStatus] = useState('all');
-    const [filterRole, setFilterRole] = useState('all');
+    const [filterRole, setFilterRole]     = useState('all');
 
     const [loading, setLoading] = useState(false);
-    const [saving, setSaving] = useState(false);
-    const [toast, setToast] = useState(null);
+    const [saving, setSaving]   = useState(false);
+    const [toast, setToast]     = useState(null);
 
     const navigate = useNavigate();
 
-    // ── Toast helper ─────────────────────────────────────────
+    // ── Toast ────────────────────────────────────────────
     const showToast = (message, type = 'success') => {
         setToast({ message, type });
         setTimeout(() => setToast(null), 3500);
     };
 
-    // ── Fetch workers ─────────────────────────────────────────
+    // ── Fetchers ─────────────────────────────────────────
     const fetchWorkers = useCallback(async () => {
         setLoading(true);
         try {
@@ -100,21 +130,21 @@ const WorkforceManagement = ({ logo }) => {
         }
     }, []);
 
-    // ── Fetch tasks & fields for dropdowns ───────────────────
     const fetchDropdowns = useCallback(async () => {
         try {
-            const [tasksData, fieldsData] = await Promise.all([
+            const [tasksData, fieldsData, unassignedData] = await Promise.all([
                 apiFetch(`${API_BASE}/tasks`),
                 apiFetch(`${API_BASE}/fields`),
+                apiFetch(`${API_BASE}/fields/unassigned`),
             ]);
             setTasks(tasksData.tasks || []);
             setFields(fieldsData.fields || []);
+            setUnassignedFields(unassignedData.fields || []);
         } catch (err) {
             console.error('Dropdown fetch error:', err);
         }
     }, []);
 
-    // ── Fetch worker task history ─────────────────────────────
     const fetchWorkerHistory = useCallback(async (workerId) => {
         if (!workerId) return;
         try {
@@ -136,79 +166,95 @@ const WorkforceManagement = ({ logo }) => {
         }
     }, [selectedWorker, detailTab, fetchWorkerHistory]);
 
-    // ── Select worker (sync state from latest workers list) ───
+    // ── Select worker ────────────────────────────────────
     const handleSelectWorker = (worker) => {
         setSelectedWorker(worker);
         setDetailTab('overview');
     };
 
-    // ── Add Worker ────────────────────────────────────────────
-    const handleAddWorker = async () => {
-        const { name, email, phone, role, location, specialty, manHoursPerDay } = newWorker;
-        if (!name || !email || !phone || !location || !specialty.length || !manHoursPerDay) {
-            showToast('Please fill all required fields', 'error');
-            return;
-        }
-        setSaving(true);
-        try {
-            await apiFetch(`${API_BASE}/workers`, {
-                method: 'POST',
-                body: JSON.stringify({
-                    full_name: name, email, phone, role, location,
-                    specialty, manHoursPerDay: parseInt(manHoursPerDay)
-                }),
-            });
-            showToast('Worker registered successfully!');
-            await fetchWorkers();
-            closeModals();
-        } catch (err) {
-            showToast(err.message, 'error');
-        } finally {
-            setSaving(false);
-        }
+    // ── Form helpers ─────────────────────────────────────
+    const setFormField = (key, value) => setForm(prev => ({ ...prev, [key]: value }));
+
+    const toggleSpecialty = (spec) => {
+        setForm(prev => ({
+            ...prev,
+            specialty: prev.specialty.includes(spec)
+                ? prev.specialty.filter(s => s !== spec)
+                : [...prev.specialty, spec]
+        }));
     };
 
-    // ── Edit Worker ───────────────────────────────────────────
+    // ── Open Add modal ────────────────────────────────────
+    const openAddModal = () => {
+        setEditingWorker(null);
+        setForm(EMPTY_WORKER_FORM);
+        setShowAddModal(true);
+    };
+
+    // ── Open Edit modal ───────────────────────────────────
     const handleEditWorker = (worker) => {
         setEditingWorker(worker);
-        setNewWorker({
-            name: worker.name,
-            email: worker.email,
-            phone: worker.phone,
-            role: worker.role,
-            location: worker.location,
-            specialty: worker.specialty || [],
-            manHoursPerDay: worker.manHoursPerDay?.toString() || ''
+        setForm({
+            name:          worker.name,
+            email:         worker.email,
+            phone:         worker.phone || '',
+            password:      '',                    // never pre-fill password
+            role:          worker.role,
+            location:      worker.location || '',
+            specialty:     worker.specialty || [],
+            manHoursPerDay: worker.manHoursPerDay?.toString() || '',
+            field_id:      worker.supervisorFieldId?.toString() || '',
         });
         setShowAddModal(true);
     };
 
-    // ── Update Worker ─────────────────────────────────────────
-    const handleUpdateWorker = async () => {
-        if (!editingWorker) return;
-        const { name, email, phone, role, location, specialty, manHoursPerDay } = newWorker;
-        if (!name || !email || !location || !specialty.length || !manHoursPerDay) {
-            showToast('Please fill all required fields', 'error');
-            return;
+    // ── Save: add or update ───────────────────────────────
+    const handleSaveWorker = async () => {
+        const { name, email, phone, password, role, location, specialty, manHoursPerDay, field_id } = form;
+
+        if (!name || !email) {
+            showToast('Name and email are required', 'error'); return;
         }
+        if (!editingWorker && !password) {
+            showToast('Password is required', 'error'); return;
+        }
+        if (role === 'Worker' && (!location || !specialty.length || !manHoursPerDay)) {
+            showToast('Location, specialty, and hours/day are required for workers', 'error'); return;
+        }
+        if (role === 'Supervisor' && !field_id) {
+            showToast('Field assignment is required for supervisors', 'error'); return;
+        }
+
         setSaving(true);
         try {
-            await apiFetch(`${API_BASE}/workers/${editingWorker.user_id}`, {
-                method: 'PUT',
-                body: JSON.stringify({
-                    full_name: name, email, phone, role, location,
-                    specialty, manHoursPerDay: parseInt(manHoursPerDay)
-                }),
-            });
-            showToast('Worker updated successfully!');
-            await fetchWorkers();
-            // Re-sync selected worker
-            if (selectedWorker?.user_id === editingWorker.user_id) {
-                setSelectedWorker(prev => ({
-                    ...prev, name, email, phone, role, location,
-                    specialty, manHoursPerDay: parseInt(manHoursPerDay)
-                }));
+            const payload = {
+                full_name: name,
+                email,
+                phone,
+                role,
+                ...(role === 'Worker'
+                    ? { location, specialty, manHoursPerDay: parseInt(manHoursPerDay) }
+                    : { field_id: parseInt(field_id) }
+                ),
+            };
+            if (!editingWorker) payload.password = password;
+
+            if (editingWorker) {
+                await apiFetch(`${API_BASE}/workers/${editingWorker.user_id}`, {
+                    method: 'PUT',
+                    body: JSON.stringify(payload),
+                });
+                showToast('Worker updated successfully!');
+            } else {
+                await apiFetch(`${API_BASE}/workers`, {
+                    method: 'POST',
+                    body: JSON.stringify(payload),
+                });
+                showToast('Worker registered successfully!');
             }
+
+            await fetchWorkers();
+            await fetchDropdowns();
             closeModals();
         } catch (err) {
             showToast(err.message, 'error');
@@ -217,7 +263,7 @@ const WorkforceManagement = ({ logo }) => {
         }
     };
 
-    // ── Delete Worker ─────────────────────────────────────────
+    // ── Delete ────────────────────────────────────────────
     const handleDeleteWorker = async (worker) => {
         if (!window.confirm(`Remove ${worker.name} from the workforce?`)) return;
         try {
@@ -230,7 +276,7 @@ const WorkforceManagement = ({ logo }) => {
         }
     };
 
-    // ── Toggle Status ─────────────────────────────────────────
+    // ── Toggle Status ─────────────────────────────────────
     const handleToggleStatus = async (worker) => {
         const newStatus = worker.status === 'active' ? 'INACTIVE' : 'ACTIVE';
         try {
@@ -241,36 +287,16 @@ const WorkforceManagement = ({ logo }) => {
             const updated = { ...worker, status: newStatus === 'ACTIVE' ? 'active' : 'inactive' };
             setWorkers(prev => prev.map(w => w.user_id === worker.user_id ? updated : w));
             if (selectedWorker?.user_id === worker.user_id) setSelectedWorker(updated);
-            showToast(`Worker ${newStatus === 'ACTIVE' ? 'activated' : 'deactivated'}.`);
+            showToast(`Account ${newStatus === 'ACTIVE' ? 'activated' : 'deactivated'}.`);
         } catch (err) {
             showToast(err.message, 'error');
         }
     };
 
-    // Toggle Role: Worker <-> Supervisor
-    const handleToggleRole = async (worker) => {
-        const newRole = worker.role === 'Worker' ? 'Supervisor' : 'Worker';
-        const action = worker.role === 'Worker' ? 'Promote' : 'Demote';
-        if (!window.confirm(`${action} ${worker.name} to ${newRole}?`)) return;
-        try {
-            await apiFetch(`${API_BASE}/workers/${worker.user_id}/role`, {
-                method: 'PUT',
-                body: JSON.stringify({ role: newRole }),
-            });
-            const updated = { ...worker, role: newRole };
-            setWorkers(prev => prev.map(w => w.user_id === worker.user_id ? updated : w));
-            if (selectedWorker?.user_id === worker.user_id) setSelectedWorker(updated);
-            showToast(`${worker.name} is now a ${newRole}.`);
-        } catch (err) {
-            showToast(err.message, 'error');
-        }
-    };
-
-    // ── Toggle Availability ───────────────────────────────────
+    // ── Toggle Availability ───────────────────────────────
     const handleToggleAvailability = async (worker) => {
         if (!worker.worker_id) {
-            showToast('Worker profile not yet set up.', 'error');
-            return;
+            showToast('Worker profile not yet set up.', 'error'); return;
         }
         const newAvail = worker.availability === 'Available' ? 'unavailable' : 'available';
         try {
@@ -284,34 +310,111 @@ const WorkforceManagement = ({ logo }) => {
             };
             setWorkers(prev => prev.map(w => w.user_id === worker.user_id ? updated : w));
             if (selectedWorker?.user_id === worker.user_id) setSelectedWorker(updated);
-            showToast(`Availability updated.`);
+            showToast('Availability updated.');
         } catch (err) {
             showToast(err.message, 'error');
         }
     };
 
-    // ── Assign Task ───────────────────────────────────────────
+    // ── Promote to Supervisor ─────────────────────────────
+    const openPromoteModal = (worker) => {
+        setPromoteFieldId('');
+        setShowPromoteModal(true);
+    };
+
+    const handlePromote = async () => {
+        if (!promoteFieldId) {
+            showToast('Please select a field to assign', 'error'); return;
+        }
+        setSaving(true);
+        try {
+            await apiFetch(`${API_BASE}/workers/${selectedWorker.user_id}/promote`, {
+                method: 'PUT',
+                body: JSON.stringify({ field_id: parseInt(promoteFieldId) }),
+            });
+            showToast(`${selectedWorker.name} promoted to Supervisor!`);
+            await fetchWorkers();
+            await fetchDropdowns();
+            setShowPromoteModal(false);
+            setSelectedWorker(null);
+        } catch (err) {
+            showToast(err.message, 'error');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    // ── Supervisor field assignment ───────────────────────
+    const openFieldModal = (worker) => {
+        setSupervisorFieldId(worker.supervisorFieldId?.toString() || '');
+        setShowFieldModal(true);
+    };
+
+    const handleSaveSupervisorField = async () => {
+        if (!supervisorFieldId) {
+            showToast('Please select a field', 'error'); return;
+        }
+        setSaving(true);
+        try {
+            await apiFetch(`${API_BASE}/supervisors/${selectedWorker.user_id}/field`, {
+                method: 'PUT',
+                body: JSON.stringify({ field_id: parseInt(supervisorFieldId) }),
+            });
+            showToast('Field assignment updated!');
+            await fetchWorkers();
+            await fetchDropdowns();
+            // Refresh selected worker
+            const refreshed = await apiFetch(`${API_BASE}/workers`);
+            const updated = (refreshed.workers || []).find(w => w.user_id === selectedWorker.user_id);
+            if (updated) setSelectedWorker(updated);
+            setShowFieldModal(false);
+        } catch (err) {
+            showToast(err.message, 'error');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleDemoteSupervisor = async (userId) => {
+        if (!window.confirm("Are you sure you want to demote this supervisor to a worker?")) return;
+
+        try {
+            await axios.put(`${API_BASE}/workers/${userId}/demote`, {}, {
+                withCredentials: true
+            });
+
+            alert("Supervisor demoted successfully");
+
+            // refresh list
+            fetchWorkers(); 
+            setSelectedWorker(null);
+
+        } catch (err) {
+            console.error(err);
+            alert(err.response?.data?.message || "Error demoting supervisor");
+        }
+    };
+
+    // ── Assign Task ───────────────────────────────────────
     const handleAssignTask = async () => {
         const { task_id, field_id, hoursRequired, dueDate } = taskAssignment;
         if (!task_id || !field_id || !dueDate) {
-            showToast('Please fill all required fields', 'error');
-            return;
+            showToast('Please fill all required fields', 'error'); return;
         }
         setSaving(true);
         try {
             await apiFetch(`${API_BASE}/assign-task`, {
                 method: 'POST',
                 body: JSON.stringify({
-                    worker_id: selectedWorker.worker_id,
-                    task_id: parseInt(task_id),
-                    field_id: parseInt(field_id),
+                    worker_id:    selectedWorker.worker_id,
+                    task_id:      parseInt(task_id),
+                    field_id:     parseInt(field_id),
                     hoursRequired: parseInt(hoursRequired) || null,
                     dueDate,
-                    remarks: taskAssignment.remarks || null,
+                    remarks:      taskAssignment.remarks || null,
                 }),
             });
             showToast('Task assigned successfully!');
-            // Refresh worker to update task count
             await fetchWorkers();
             closeModals();
         } catch (err) {
@@ -321,52 +424,59 @@ const WorkforceManagement = ({ logo }) => {
         }
     };
 
-    // ── Specialty toggle ──────────────────────────────────────
-    const toggleSpecialty = (spec) => {
-        setNewWorker(prev => ({
-            ...prev,
-            specialty: prev.specialty.includes(spec)
-                ? prev.specialty.filter(s => s !== spec)
-                : [...prev.specialty, spec]
-        }));
-    };
-
-    // ── Close modals ──────────────────────────────────────────
+    // ── Close all modals ──────────────────────────────────
     const closeModals = () => {
         setShowAddModal(false);
         setShowAssignModal(false);
+        setShowFieldModal(false);
+        setShowPromoteModal(false);
         setEditingWorker(null);
-        setNewWorker(EMPTY_WORKER);
+        setForm(EMPTY_WORKER_FORM);
         setTaskAssignment(EMPTY_TASK);
+        setPromoteFieldId('');
+        setSupervisorFieldId('');
     };
 
-    // ── Filter workers ────────────────────────────────────────
+    // ── Filter ────────────────────────────────────────────
     const filteredWorkers = workers.filter(w => {
         const q = searchTerm.toLowerCase();
         const matchSearch = w.name?.toLowerCase().includes(q) ||
             w.location?.toLowerCase().includes(q) ||
             w.email?.toLowerCase().includes(q);
         const matchStatus = filterStatus === 'all' || w.status === filterStatus;
-        const matchRole = filterRole === 'all' || w.role === filterRole;
+        const matchRole   = filterRole   === 'all' || w.role   === filterRole;
         return matchSearch && matchStatus && matchRole;
     });
 
-    // ── Status label helpers ──────────────────────────────────
+    // ── Helpers ───────────────────────────────────────────
     const statusBadge = (status) => (
         <span className={`status-badge ${status}`}>{status}</span>
     );
 
     const taskStatusColor = (status) => {
         const map = {
-            pending: 'task-pending',
+            pending:     'task-pending',
             in_progress: 'task-in-progress',
-            completed: 'task-completed',
-            rejected: 'task-rejected',
+            completed:   'task-completed',
+            rejected:    'task-rejected',
         };
         return map[status] || 'task-pending';
     };
 
-    // ─────────────────────────────────────────────────────────
+    // Fields available for promotion / supervisor assignment
+    // = unassigned fields + (if editing, their current field)
+    const fieldsForSupervisor = [
+        ...unassignedFields,
+        ...(selectedWorker?.supervisorFieldId
+            ? fields.filter(f =>
+                f.field_id === selectedWorker.supervisorFieldId &&
+                !unassignedFields.find(u => u.field_id === f.field_id)
+              )
+            : []
+        ),
+    ];
+
+    // ─────────────────────────────────────────────────────
     return (
         <div className="workforce-management-layout">
             <SideNav
@@ -406,14 +516,14 @@ const WorkforceManagement = ({ logo }) => {
                     ) : (
                         <div className="workforce-management-container">
 
-                            {/* ── LEFT PANEL ─────────────────────── */}
+                            {/* ── LEFT PANEL ──────────────────── */}
                             <div className="workers-panel">
                                 <div className="panel-header">
                                     <div className="panel-title-row">
                                         <h2>Workforce</h2>
                                         <span className="worker-count">{filteredWorkers.length}</span>
                                     </div>
-                                    <button className="add-btn" onClick={() => setShowAddModal(true)}>
+                                    <button className="add-btn" onClick={openAddModal}>
                                         <FiPlus /> Add Worker
                                     </button>
                                 </div>
@@ -476,19 +586,32 @@ const WorkforceManagement = ({ logo }) => {
                                                     {statusBadge(worker.status)}
                                                 </div>
                                                 <div className="worker-details">
-                                                    <p><FiMapPin className="icon" /> {worker.location}</p>
-                                                    <p><FiClock className="icon" /> {worker.manHoursPerDay} hrs/day</p>
+                                                    {worker.role === 'Supervisor' ? (
+                                                        <p>
+                                                            <FiLayers className="icon" />
+                                                            {worker.supervisorFieldName
+                                                                ? `Field: ${worker.supervisorFieldName}`
+                                                                : 'No field assigned'}
+                                                        </p>
+                                                    ) : (
+                                                        <>
+                                                            <p><FiMapPin className="icon" /> {worker.location || '—'}</p>
+                                                            <p><FiClock className="icon" /> {worker.manHoursPerDay} hrs/day</p>
+                                                        </>
+                                                    )}
                                                 </div>
-                                                <div className="worker-stats">
-                                                    <div className="stat">
-                                                        <span className="label">Tasks</span>
-                                                        <span className="value">{worker.assignedTasks}</span>
+                                                {worker.role !== 'Supervisor' && (
+                                                    <div className="worker-stats">
+                                                        <div className="stat">
+                                                            <span className="label">Tasks</span>
+                                                            <span className="value">{worker.assignedTasks}</span>
+                                                        </div>
+                                                        <div className="stat">
+                                                            <span className="label">Completion</span>
+                                                            <span className="value">{worker.completionRate}%</span>
+                                                        </div>
                                                     </div>
-                                                    <div className="stat">
-                                                        <span className="label">Completion</span>
-                                                        <span className="value">{worker.completionRate}%</span>
-                                                    </div>
-                                                </div>
+                                                )}
                                                 <div className="worker-item-actions" onClick={e => e.stopPropagation()}>
                                                     <button className="icon-btn edit" title="Edit" onClick={() => handleEditWorker(worker)}>
                                                         <FiEdit2 />
@@ -503,7 +626,7 @@ const WorkforceManagement = ({ logo }) => {
                                 </div>
                             </div>
 
-                            {/* ── RIGHT PANEL ────────────────────── */}
+                            {/* ── RIGHT PANEL ─────────────────── */}
                             <div className="details-panel">
                                 {selectedWorker ? (
                                     <>
@@ -511,17 +634,35 @@ const WorkforceManagement = ({ logo }) => {
                                             <div>
                                                 <h2>{selectedWorker.name}</h2>
                                                 <p className="panel-subtitle">
-                                                    {selectedWorker.role} • {selectedWorker.location}
+                                                    {selectedWorker.role} •{' '}
+                                                    {selectedWorker.role === 'Supervisor'
+                                                        ? (selectedWorker.supervisorFieldName || 'No field assigned')
+                                                        : selectedWorker.location}
                                                 </p>
                                             </div>
-                                            <button
-                                                className="add-btn"
-                                                onClick={() => setShowAssignModal(true)}
-                                                disabled={!selectedWorker.worker_id}
-                                                title={!selectedWorker.worker_id ? 'Worker profile incomplete' : ''}
-                                            >
-                                                <FiClipboard /> Assign Task
-                                            </button>
+
+                                            <div className="panel-header-actions">
+                                                {/* Assign Task — Workers only */}
+                                                {selectedWorker.role !== 'Supervisor' && (
+                                                    <button
+                                                        className="add-btn"
+                                                        onClick={() => setShowAssignModal(true)}
+                                                        disabled={!selectedWorker.worker_id}
+                                                        title={!selectedWorker.worker_id ? 'Worker profile incomplete' : ''}
+                                                    >
+                                                        <FiClipboard /> Assign Task
+                                                    </button>
+                                                )}
+                                                {/* Assign / Change Field — Supervisors only */}
+                                                {selectedWorker.role === 'Supervisor' && (
+                                                    <button
+                                                        className="add-btn"
+                                                        onClick={() => openFieldModal(selectedWorker)}
+                                                    >
+                                                        <FiLayers /> {selectedWorker.supervisorFieldId ? 'Change Field' : 'Assign Field'}
+                                                    </button>
+                                                )}
+                                            </div>
                                         </div>
 
                                         {/* Detail tabs */}
@@ -532,18 +673,20 @@ const WorkforceManagement = ({ logo }) => {
                                             >
                                                 Overview
                                             </button>
-                                            <button
-                                                className={`detail-tab-btn ${detailTab === 'history' ? 'active' : ''}`}
-                                                onClick={() => setDetailTab('history')}
-                                            >
-                                                <FiList /> Task History
-                                            </button>
+                                            {selectedWorker.role !== 'Supervisor' && (
+                                                <button
+                                                    className={`detail-tab-btn ${detailTab === 'history' ? 'active' : ''}`}
+                                                    onClick={() => setDetailTab('history')}
+                                                >
+                                                    <FiList /> Task History
+                                                </button>
+                                            )}
                                         </div>
 
                                         <div className="details-tabs">
+                                            {/* Overview tab */}
                                             {detailTab === 'overview' && (
                                                 <div className="tab-content active">
-                                                    {/* Info grid */}
                                                     <div className="info-grid">
                                                         <div className="info-card">
                                                             <span className="info-label">Email</span>
@@ -563,16 +706,26 @@ const WorkforceManagement = ({ logo }) => {
                                                                 <FiCalendar className="icon" /> {selectedWorker.joinDate || '—'}
                                                             </span>
                                                         </div>
-                                                        <div className="info-card">
-                                                            <span className="info-label">Availability</span>
-                                                            <span className={`info-value availability-${selectedWorker.availability === 'Available' ? 'available' : 'not'}`}>
-                                                                {selectedWorker.availability}
-                                                            </span>
-                                                        </div>
+                                                        {selectedWorker.role === 'Supervisor' ? (
+                                                            <div className="info-card">
+                                                                <span className="info-label">Assigned Field</span>
+                                                                <span className="info-value">
+                                                                    <FiLayers className="icon" />
+                                                                    {selectedWorker.supervisorFieldName || 'Not assigned'}
+                                                                </span>
+                                                            </div>
+                                                        ) : (
+                                                            <div className="info-card">
+                                                                <span className="info-label">Availability</span>
+                                                                <span className={`info-value availability-${selectedWorker.availability === 'Available' ? 'available' : 'not'}`}>
+                                                                    {selectedWorker.availability}
+                                                                </span>
+                                                            </div>
+                                                        )}
                                                     </div>
 
-                                                    {/* Specialties */}
-                                                    {selectedWorker.specialty?.length > 0 && (
+                                                    {/* Specialties — Workers only */}
+                                                    {selectedWorker.role !== 'Supervisor' && selectedWorker.specialty?.length > 0 && (
                                                         <div className="specialties-section">
                                                             <h3>Specialties</h3>
                                                             <div className="specialty-tags">
@@ -585,51 +738,55 @@ const WorkforceManagement = ({ logo }) => {
                                                         </div>
                                                     )}
 
-                                                    {/* Performance */}
-                                                    <div className="performance-section">
-                                                        <h3>Performance</h3>
-                                                        <div className="performance-grid">
-                                                            <div className="performance-card">
-                                                                <div className="perf-icon"><FiClipboard /></div>
-                                                                <div className="perf-info">
-                                                                    <span className="perf-label">Total Tasks</span>
-                                                                    <span className="perf-value">{selectedWorker.assignedTasks}</span>
+                                                    {/* Performance — Workers only */}
+                                                    {selectedWorker.role !== 'Supervisor' && (
+                                                        <div className="performance-section">
+                                                            <h3>Performance</h3>
+                                                            <div className="performance-grid">
+                                                                <div className="performance-card">
+                                                                    <div className="perf-icon"><FiClipboard /></div>
+                                                                    <div className="perf-info">
+                                                                        <span className="perf-label">Total Tasks</span>
+                                                                        <span className="perf-value">{selectedWorker.assignedTasks}</span>
+                                                                    </div>
                                                                 </div>
-                                                            </div>
-                                                            <div className="performance-card">
-                                                                <div className="perf-icon"><FiCheckCircle /></div>
-                                                                <div className="perf-info">
-                                                                    <span className="perf-label">Completion</span>
-                                                                    <span className="perf-value">{selectedWorker.completionRate}%</span>
+                                                                <div className="performance-card">
+                                                                    <div className="perf-icon"><FiCheckCircle /></div>
+                                                                    <div className="perf-info">
+                                                                        <span className="perf-label">Completion</span>
+                                                                        <span className="perf-value">{selectedWorker.completionRate}%</span>
+                                                                    </div>
                                                                 </div>
-                                                            </div>
-                                                            <div className="performance-card">
-                                                                <div className="perf-icon"><FiClock /></div>
-                                                                <div className="perf-info">
-                                                                    <span className="perf-label">Hours/Day</span>
-                                                                    <span className="perf-value">{selectedWorker.manHoursPerDay}h</span>
+                                                                <div className="performance-card">
+                                                                    <div className="perf-icon"><FiClock /></div>
+                                                                    <div className="perf-info">
+                                                                        <span className="perf-label">Hours/Day</span>
+                                                                        <span className="perf-value">{selectedWorker.manHoursPerDay}h</span>
+                                                                    </div>
                                                                 </div>
-                                                            </div>
-                                                            <div className="performance-card">
-                                                                <div className="perf-icon"><FiTrendingUp /></div>
-                                                                <div className="perf-info">
-                                                                    <span className="perf-label">Account</span>
-                                                                    <span className="perf-value" style={{ textTransform: 'capitalize' }}>
-                                                                        {selectedWorker.status}
-                                                                    </span>
+                                                                <div className="performance-card">
+                                                                    <div className="perf-icon"><FiTrendingUp /></div>
+                                                                    <div className="perf-info">
+                                                                        <span className="perf-label">Account</span>
+                                                                        <span className="perf-value" style={{ textTransform: 'capitalize' }}>
+                                                                            {selectedWorker.status}
+                                                                        </span>
+                                                                    </div>
                                                                 </div>
                                                             </div>
                                                         </div>
-                                                    </div>
+                                                    )}
 
                                                     {/* Action buttons */}
                                                     <div className="action-buttons">
-                                                        <button
-                                                            className="btn-action primary"
-                                                            onClick={() => handleToggleAvailability(selectedWorker)}
-                                                        >
-                                                            {selectedWorker.availability === 'Available' ? 'Mark Unavailable' : 'Mark Available'}
-                                                        </button>
+                                                        {selectedWorker.role !== 'Supervisor' && (
+                                                            <button
+                                                                className="btn-action primary"
+                                                                onClick={() => handleToggleAvailability(selectedWorker)}
+                                                            >
+                                                                {selectedWorker.availability === 'Available' ? 'Mark Unavailable' : 'Mark Available'}
+                                                            </button>
+                                                        )}
                                                         <button
                                                             className="btn-action secondary"
                                                             onClick={() => handleToggleStatus(selectedWorker)}
@@ -637,18 +794,36 @@ const WorkforceManagement = ({ logo }) => {
                                                             {selectedWorker.status === 'active' ? 'Deactivate Account' : 'Activate Account'}
                                                         </button>
                                                     </div>
-                                                    <div className="action-buttons" style={{ marginTop: '0.75rem' }}>
-                                                        <button
-                                                            className={`btn-action ${selectedWorker.role === 'Worker' ? 'promote' : 'demote'}`}
-                                                            onClick={() => handleToggleRole(selectedWorker)}
-                                                        >
-                                                            {selectedWorker.role === 'Worker' ? '⬆ Promote to Supervisor' : '⬇ Demote to Worker'}
-                                                        </button>
-                                                    </div>
+
+                                                    {/* Promote button — Workers only */}
+                                                    {selectedWorker.role === 'Worker' && (
+                                                        <div className="action-buttons" style={{ marginTop: '0.75rem' }}>
+                                                            <button
+                                                                className="btn-action promote"
+                                                                onClick={() => openPromoteModal(selectedWorker)}
+                                                            >
+                                                                <FiShield style={{ marginRight: '0.4rem' }} />
+                                                                Promote to Supervisor
+                                                            </button>
+                                                        </div>
+                                                    )}
+
+                                                    {/* Demote Supervisor */}
+                                                    {selectedWorker.role === 'Supervisor' && (
+                                                        <div className="action-buttons" style={{ marginTop: '0.75rem' }}>
+                                                            <button
+                                                                className="btn btn-warning"
+                                                                onClick={() => handleDemoteSupervisor(selectedWorker.user_id)}
+                                                            >
+                                                                 Demote to Worker
+                                                            </button>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             )}
 
-                                            {detailTab === 'history' && (
+                                            {/* Task History tab */}
+                                            {detailTab === 'history' && selectedWorker.role !== 'Supervisor' && (
                                                 <div className="tab-content active">
                                                     <h3 style={{ marginBottom: '1rem', fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-primary)' }}>
                                                         Recent Task History (Last 20)
@@ -696,114 +871,183 @@ const WorkforceManagement = ({ logo }) => {
                 </main>
             </div>
 
-            {/* ── ADD / EDIT WORKER MODAL ───────────────── */}
+            {/* ══════════════════════════════════════════════
+                ADD / EDIT WORKER MODAL
+            ══════════════════════════════════════════════ */}
             {showAddModal && (
                 <div className="modal-overlay" onClick={closeModals}>
-                    <div className="modal" onClick={e => e.stopPropagation()}>
+                    <div className="modal modal-wide" onClick={e => e.stopPropagation()}>
                         <div className="modal-header">
-                            <h2>{editingWorker ? 'Edit Worker' : 'Register New Worker'}</h2>
+                            <h2>{editingWorker ? `Edit — ${editingWorker.name}` : 'Register New Member'}</h2>
                             <button className="close-btn" onClick={closeModals}><FiX /></button>
                         </div>
+
+                        {/* Role Switcher Tabs */}
+                        <div className="modal-role-tabs">
+                            <button
+                                className={`role-tab ${form.role === 'Worker' ? 'active' : ''}`}
+                                onClick={() => setFormField('role', 'Worker')}
+                                disabled={!!editingWorker}
+                            >
+                                <FiUser /> Worker
+                            </button>
+                            <button
+                                className={`role-tab ${form.role === 'Supervisor' ? 'active' : ''}`}
+                                onClick={() => setFormField('role', 'Supervisor')}
+                                disabled={!!editingWorker}
+                            >
+                                <FiShield /> Supervisor
+                            </button>
+                        </div>
+
                         <div className="modal-body">
+                            {/* ── Common Fields ────────────── */}
                             <div className="form-row">
                                 <div className="form-group">
                                     <label>Full Name *</label>
                                     <input
                                         type="text"
-                                        placeholder="Worker's full name"
-                                        value={newWorker.name}
-                                        onChange={e => setNewWorker({ ...newWorker, name: e.target.value })}
+                                        placeholder="Full name"
+                                        value={form.name}
+                                        onChange={e => setFormField('name', e.target.value)}
                                     />
                                 </div>
                                 <div className="form-group">
-                                    <label>Role *</label>
-                                    <select
-                                        value={newWorker.role}
-                                        onChange={e => setNewWorker({ ...newWorker, role: e.target.value })}
-                                    >
-                                        <option value="Worker">Worker</option>
-                                        <option value="Supervisor">Supervisor</option>
-                                    </select>
+                                    <label>Phone</label>
+                                    <input
+                                        type="tel"
+                                        placeholder="+94701234567"
+                                        value={form.phone}
+                                        onChange={e => setFormField('phone', e.target.value)}
+                                    />
                                 </div>
                             </div>
+
                             <div className="form-row">
                                 <div className="form-group">
                                     <label>Email *</label>
                                     <input
                                         type="email"
-                                        placeholder="worker@plantation.com"
-                                        value={newWorker.email}
-                                        onChange={e => setNewWorker({ ...newWorker, email: e.target.value })}
+                                        placeholder="email@plantation.com"
+                                        value={form.email}
+                                        onChange={e => setFormField('email', e.target.value)}
                                     />
                                 </div>
                                 <div className="form-group">
-                                    <label>Phone *</label>
-                                    <input
-                                        type="tel"
-                                        placeholder="+94701234567"
-                                        value={newWorker.phone}
-                                        onChange={e => setNewWorker({ ...newWorker, phone: e.target.value })}
+                                    <label>
+                                        {editingWorker ? 'Password' : 'Password *'}
+                                        {editingWorker && (
+                                            <span className="label-hint"> (leave blank to keep current)</span>
+                                        )}
+                                    </label>
+                                    <PasswordInput
+                                        value={form.password}
+                                        onChange={e => setFormField('password', e.target.value)}
+                                        placeholder={editingWorker ? 'Leave blank to keep current' : 'Set a password'}
                                     />
                                 </div>
                             </div>
-                            <div className="form-row">
+
+                            {/* ── WORKER-specific fields ────── */}
+                            {form.role === 'Worker' && (
+                                <>
+                                    <div className="form-row">
+                                        <div className="form-group">
+                                            <label>Location *</label>
+                                            <select
+                                                value={form.location}
+                                                onChange={e => setFormField('location', e.target.value)}
+                                            >
+                                                <option value="">Select location…</option>
+                                                {LOCATION_OPTIONS.map(loc => (
+                                                    <option key={loc} value={loc}>{loc}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div className="form-group">
+                                            <label>Max Hours/Day *</label>
+                                            <input
+                                                type="number"
+                                                min="1"
+                                                max="12"
+                                                placeholder="e.g. 8"
+                                                value={form.manHoursPerDay}
+                                                onChange={e => setFormField('manHoursPerDay', e.target.value)}
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="form-group">
+                                        <label>
+                                            Specialties *
+                                            <span className="label-hint"> (select at least one)</span>
+                                        </label>
+                                        <div className="specialty-checkboxes">
+                                            {SPECIALTY_OPTIONS.map(spec => (
+                                                <label
+                                                    key={spec}
+                                                    className={`checkbox-label ${form.specialty.includes(spec) ? 'selected' : ''}`}
+                                                >
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={form.specialty.includes(spec)}
+                                                        onChange={() => toggleSpecialty(spec)}
+                                                    />
+                                                    <span>{spec}</span>
+                                                </label>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </>
+                            )}
+
+                            {/* ── SUPERVISOR-specific fields ── */}
+                            {form.role === 'Supervisor' && (
                                 <div className="form-group">
-                                    <label>Location *</label>
+                                    <label>Assign Field *</label>
                                     <select
-                                        value={newWorker.location}
-                                        onChange={e => setNewWorker({ ...newWorker, location: e.target.value })}
+                                        value={form.field_id}
+                                        onChange={e => setFormField('field_id', e.target.value)}
                                     >
-                                        <option value="">Select location…</option>
-                                        {LOCATION_OPTIONS.map(loc => (
-                                            <option key={loc} value={loc}>{loc}</option>
+                                        <option value="">Select a field…</option>
+                                        {/* If editing supervisor, show all fields (including current) */}
+                                        {(editingWorker
+                                            ? fields
+                                            : unassignedFields
+                                        ).map(f => (
+                                            <option key={f.field_id} value={f.field_id}>
+                                                {f.field_name} ({f.crop_name})
+                                                {f.supervisor_name ? ` — Supervisor: ${f.supervisor_name}` : ''}
+                                            </option>
                                         ))}
                                     </select>
+                                    {!editingWorker && unassignedFields.length === 0 && (
+                                        <p className="field-warning">
+                                            ⚠ All fields already have supervisors assigned.
+                                        </p>
+                                    )}
                                 </div>
-                                <div className="form-group">
-                                    <label>Max Hours/Day *</label>
-                                    <input
-                                        type="number"
-                                        min="1"
-                                        max="12"
-                                        placeholder="e.g. 8"
-                                        value={newWorker.manHoursPerDay}
-                                        onChange={e => setNewWorker({ ...newWorker, manHoursPerDay: e.target.value })}
-                                    />
-                                </div>
-                            </div>
-                            <div className="form-group">
-                                <label>Specialties * <span className="label-hint">(select at least one)</span></label>
-                                <div className="specialty-checkboxes">
-                                    {SPECIALTY_OPTIONS.map(spec => (
-                                        <label key={spec} className={`checkbox-label ${newWorker.specialty.includes(spec) ? 'selected' : ''}`}>
-                                            <input
-                                                type="checkbox"
-                                                checked={newWorker.specialty.includes(spec)}
-                                                onChange={() => toggleSpecialty(spec)}
-                                            />
-                                            <span>{spec}</span>
-                                        </label>
-                                    ))}
-                                </div>
-                            </div>
+                            )}
                         </div>
+
                         <div className="modal-footer">
                             <button className="btn-secondary" onClick={closeModals}>Cancel</button>
                             <button
                                 className="btn-primary"
-                                onClick={editingWorker ? handleUpdateWorker : handleAddWorker}
+                                onClick={handleSaveWorker}
                                 disabled={saving}
                             >
                                 {saving ? <FiRefreshCw className="spin" /> : <FiSave />}
-                                {saving ? 'Saving…' : (editingWorker ? 'Update Worker' : 'Register Worker')}
+                                {saving ? 'Saving…' : (editingWorker ? 'Update' : 'Register')}
                             </button>
                         </div>
                     </div>
                 </div>
             )}
 
-            {/* ── ASSIGN TASK MODAL ─────────────────────── */}
-            {showAssignModal && selectedWorker && (
+            {/* ══════════════════════════════════════════════
+                ASSIGN TASK MODAL
+            ══════════════════════════════════════════════ */}
+            {showAssignModal && selectedWorker && selectedWorker.role !== 'Supervisor' && (
                 <div className="modal-overlay" onClick={closeModals}>
                     <div className="modal" onClick={e => e.stopPropagation()}>
                         <div className="modal-header">
@@ -864,7 +1108,7 @@ const WorkforceManagement = ({ logo }) => {
                             <div className="form-group">
                                 <label>Remarks</label>
                                 <textarea
-                                    placeholder="Optional instructions or notes…"
+                                    placeholder="Optional instructions…"
                                     value={taskAssignment.remarks}
                                     onChange={e => setTaskAssignment({ ...taskAssignment, remarks: e.target.value })}
                                     rows={3}
@@ -882,7 +1126,111 @@ const WorkforceManagement = ({ logo }) => {
                 </div>
             )}
 
-            {/* ── TOAST ─────────────────────────────────── */}
+            {/* ══════════════════════════════════════════════
+                PROMOTE TO SUPERVISOR MODAL
+            ══════════════════════════════════════════════ */}
+            {showPromoteModal && selectedWorker && (
+                <div className="modal-overlay" onClick={closeModals}>
+                    <div className="modal modal-sm" onClick={e => e.stopPropagation()}>
+                        <div className="modal-header">
+                            <h2>Promote to Supervisor</h2>
+                            <button className="close-btn" onClick={closeModals}><FiX /></button>
+                        </div>
+                        <div className="modal-body">
+                            <div className="promote-warning">
+                                <FiShield className="promote-warning-icon" />
+                                <div>
+                                    <strong>Promoting {selectedWorker.name}</strong>
+                                </div>
+                            </div>
+                            <div className="form-group" style={{ marginTop: '1.25rem' }}>
+                                <label>Assign Field *</label>
+                                <select
+                                    value={promoteFieldId}
+                                    onChange={e => setPromoteFieldId(e.target.value)}
+                                >
+                                    <option value="">Select an unassigned field…</option>
+                                    {unassignedFields.map(f => (
+                                        <option key={f.field_id} value={f.field_id}>
+                                            {f.field_name} ({f.crop_name}) — {f.location || 'No location'}
+                                        </option>
+                                    ))}
+                                </select>
+                                {unassignedFields.length === 0 && (
+                                    <p className="field-warning">⚠ No unassigned fields available.</p>
+                                )}
+                            </div>
+                        </div>
+                        <div className="modal-footer">
+                            <button className="btn-secondary" onClick={closeModals}>Cancel</button>
+                            <button
+                                className="btn-primary btn-promote"
+                                onClick={handlePromote}
+                                disabled={saving || !promoteFieldId}
+                            >
+                                {saving ? <FiRefreshCw className="spin" /> : <FiShield />}
+                                {saving ? 'Promoting…' : 'Confirm Promotion'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ══════════════════════════════════════════════
+                SUPERVISOR FIELD ASSIGNMENT MODAL
+            ══════════════════════════════════════════════ */}
+            {showFieldModal && selectedWorker && (
+                <div className="modal-overlay" onClick={closeModals}>
+                    <div className="modal modal-sm" onClick={e => e.stopPropagation()}>
+                        <div className="modal-header">
+                            <h2>{selectedWorker.supervisorFieldId ? 'Change Field Assignment' : 'Assign Field'}</h2>
+                            <button className="close-btn" onClick={closeModals}><FiX /></button>
+                        </div>
+                        <div className="modal-body">
+                            {selectedWorker.supervisorFieldId && (
+                                <div className="current-field-info">
+                                    <span className="info-label">Current Field</span>
+                                    <span className="current-field-name">
+                                        <FiLayers /> {selectedWorker.supervisorFieldName}
+                                    </span>
+                                </div>
+                            )}
+                            <div className="form-group" style={{ marginTop: '1rem' }}>
+                                <label>{selectedWorker.supervisorFieldId ? 'New Field *' : 'Select Field *'}</label>
+                                <select
+                                    value={supervisorFieldId}
+                                    onChange={e => setSupervisorFieldId(e.target.value)}
+                                >
+                                    <option value="">Select a field…</option>
+                                    {/* Show unassigned + current field */}
+                                    {fieldsForSupervisor.map(f => (
+                                        <option key={f.field_id} value={f.field_id}>
+                                            {f.field_name} ({f.crop_name})
+                                            {f.field_id === selectedWorker.supervisorFieldId ? ' — Current' : ''}
+                                        </option>
+                                    ))}
+                                </select>
+                                {fieldsForSupervisor.length === 0 && (
+                                    <p className="field-warning">⚠ No available fields to assign.</p>
+                                )}
+                            </div>
+                        </div>
+                        <div className="modal-footer">
+                            <button className="btn-secondary" onClick={closeModals}>Cancel</button>
+                            <button
+                                className="btn-primary"
+                                onClick={handleSaveSupervisorField}
+                                disabled={saving || !supervisorFieldId}
+                            >
+                                {saving ? <FiRefreshCw className="spin" /> : <FiSave />}
+                                {saving ? 'Saving…' : 'Save Assignment'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Toast */}
             {toast && (
                 <Toast
                     message={toast.message}
