@@ -134,43 +134,59 @@ const FieldManagement = ({ logo }) => {
     };
 
     const handleSave = async () => {
-        const { field_name, crop_id, location, area, supervisor_id } = formData;
-        if (!field_name || !crop_id || !location || !area || !supervisor_id) {
-            alert('Please fill in all required fields (*).');
-            return;
-        }
-        setLoading(true);
-        try {
-            const payload = {
-                field_name,
-                crop_id:       Number(crop_id),
-                location,
-                area:          parseFloat(area),
-                supervisor_id: Number(supervisor_id)
-            };
-            const url    = editingField ? `${API}/fields/${editingField.field_id}` : `${API}/fields`;
-            const method = editingField ? 'PUT' : 'POST';
-            const res    = await fetch(url, {
-                method,
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.error || 'Save failed');
+    const { field_name, crop_id, location, area, supervisor_id } = formData;
 
-            if (editingField) {
-                setFields(prev => prev.map(f => f.field_id === editingField.field_id ? data : f));
-                if (selectedField?.field_id === editingField.field_id) setSelectedField(data);
-            } else {
-                setFields(prev => [...prev, data]);
+    if (!field_name || !crop_id || !location || !area) {
+        alert('Please fill in all required fields (*).');
+        return;
+    }
+
+    setLoading(true);
+    try {
+        const payload = {
+            field_name,
+            crop_id: Number(crop_id),
+            location,
+            area: parseFloat(area),
+            supervisor_id: supervisor_id ? Number(supervisor_id) : null
+        };
+
+        const url = editingField
+            ? `${API}/fields/${editingField.field_id}`
+            : `${API}/fields`;
+
+        const method = editingField ? 'PUT' : 'POST';
+
+        const res = await fetch(url, {
+            method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Save failed');
+
+        if (editingField) {
+            setFields(prev =>
+                prev.map(f =>
+                    f.field_id === editingField.field_id ? data : f
+                )
+            );
+
+            if (selectedField?.field_id === editingField.field_id) {
+                setSelectedField(data);
             }
-            closeModal();
-        } catch (err) {
-            alert(err.message);
-        } finally {
-            setLoading(false);
+        } else {
+            setFields(prev => [...prev, data]);
         }
-    };
+
+        closeModal();
+    } catch (err) {
+        alert(err.message);
+    } finally {
+        setLoading(false);
+    }
+};
 
     const handleDelete = async (fieldId) => {
         if (!window.confirm('Delete this field? This cannot be undone.')) return;

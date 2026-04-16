@@ -3,16 +3,22 @@ import { db } from "../config/db.js";
 // GET /api/fields
 export const getAllFields = async (req, res) => {
   try {
-    const [rows] = await db.query(
-      `SELECT f.field_id, f.field_name, f.location, f.area,
-              f.supervisor_id, f.crop_id,
-              c.crop_name,
-              u.full_name AS supervisor_name
-       FROM fields f
-       LEFT JOIN crops      c ON f.crop_id       = c.crop_id
-       LEFT JOIN users      u ON f.supervisor_id  = u.user_id
-       ORDER BY f.field_id`
-    );
+    const [rows] = await db.query(`
+      SELECT 
+        f.field_id,
+        f.field_name,
+        f.location,
+        f.area,
+        f.crop_id,
+        c.crop_name,
+        s.user_id AS supervisor_id,
+        u.full_name AS supervisor_name
+      FROM fields f
+      LEFT JOIN crops c ON f.crop_id = c.crop_id
+      LEFT JOIN supervisors s ON s.field_id = f.field_id
+      LEFT JOIN users u ON s.user_id = u.user_id
+      ORDER BY f.field_id
+    `);
     res.json(rows);
   } catch (err) {
     console.error("getAllFields error:", err);
@@ -49,13 +55,30 @@ export const createField = async (req, res) => {
   try {
     await conn.beginTransaction();
     const { field_name, crop_id, location, area, supervisor_id } = req.body;
-    if (!field_name || !crop_id || !location || !area || !supervisor_id)
+    if (!field_name || !crop_id || !location || !area )
       return res.status(400).json({ error: "All required fields must be filled" });
+    if (supervisor_id) {
+      const [checkSup] = await conn.query(
+        "SELECT user_id FROM users WHERE user_id = ? AND role_id = 2",
+        [supervisor_id]
+      );
 
+      if (!checkSup.length) {
+        return res.status(400).json({ error: "Invalid supervisor_id" });
+      }
+    }
     const [result] = await conn.query(
-      `INSERT INTO fields (field_name, crop_id, location, area, supervisor_id) VALUES (?, ?, ?, ?, ?)`,
-      [field_name, Number(crop_id), location, parseFloat(area), Number(supervisor_id)]
+      `INSERT INTO fields (field_name, crop_id, location, area)
+      VALUES (?, ?, ?, ?)`,
+      [field_name, Number(crop_id), location, parseFloat(area)]
     );
+    if (supervisor_id) {
+      await conn.query(
+        `INSERT INTO supervisors (user_id, field_id)
+        VALUES (?, ?)`,
+        [supervisor_id, fieldId]
+      );
+    }
     const fieldId = result.insertId;
 
     const [cropTasks] = await conn.query(
@@ -95,16 +118,37 @@ export const updateField = async (req, res) => {
   try {
     const { id } = req.params;
     const { field_name, crop_id, location, area, supervisor_id } = req.body;
-    if (!field_name || !crop_id || !location || !area || !supervisor_id)
+    if (!field_name || !crop_id || !location || !area )
       return res.status(400).json({ error: "All required fields must be filled" });
 
     const [check] = await db.query("SELECT field_id FROM fields WHERE field_id = ?", [id]);
     if (!check.length) return res.status(404).json({ error: "Field not found" });
-
+    if (supervisor_id) {
+      const [checkSup] = await db.query(
+        "SELECT user_id FROM users WHERE user_id = ? AND role_id = 2",
+        [supervisor_id]
+      );
+      if (!checkSup.length) {
+        return res.status(400).json({ error: "Invalid supervisor_id" });
+      }
+    }
+    // Update field basic data
     await db.query(
-      `UPDATE fields SET field_name=?, crop_id=?, location=?, area=?, supervisor_id=? WHERE field_id=?`,
-      [field_name, Number(crop_id), location, parseFloat(area), Number(supervisor_id), id]
+      `UPDATE fields
+      SET field_name=?, crop_id=?, location=?, area=?
+      WHERE field_id=?`,
+      [field_name, Number(crop_id), location, parseFloat(area), id]
     );
+
+    // Handle supervisor separately
+    if (supervisor_id) {
+      await db.query(
+        `INSERT INTO supervisors (user_id, field_id)
+        VALUES (?, ?)
+        ON DUPLICATE KEY UPDATE user_id = VALUES(user_id)`,
+        [supervisor_id, id]
+      );
+    }
     const [rows] = await db.query(
       `SELECT f.field_id, f.field_name, f.location, f.area,
               f.supervisor_id, f.crop_id, c.crop_name, u.full_name AS supervisor_name
@@ -118,6 +162,36 @@ export const updateField = async (req, res) => {
   } catch (err) {
     console.error("updateField error:", err);
     res.status(500).json({ error: "Database error" });
+  }
+};
+
+export const removeSupervisorFromField = async (req, res) => {
+  const conn = await db.getConnection();
+
+  try {
+    const { field_id } = req.params;
+
+    await conn.beginTransaction();
+
+    // clear field
+    await conn.query(
+      "DELETE FROM supervisors WHERE field_id = ?",
+      [field_id]
+    );
+
+    await conn.query(
+      "UPDATE fields SET supervisor_id = NULL WHERE field_id = ?",
+      [field_id]
+    );
+
+    await conn.commit();
+    res.json({ success: true });
+
+  } catch (err) {
+    await conn.rollback();
+    res.status(500).json({ message: err.message });
+  } finally {
+    conn.release();
   }
 };
 
@@ -140,7 +214,10 @@ export const getSupervisors = async (req, res) => {
   try {
     const [rows] = await db.query(
       `SELECT u.user_id, u.full_name, u.email
-       FROM users u WHERE u.role_id = 2 AND u.status = 'ACTIVE' ORDER BY u.full_name`
+      FROM users u
+      WHERE u.role_id = (SELECT role_id FROM roles WHERE role_name = 'SUPERVISOR')
+      AND u.status = 'ACTIVE'
+      ORDER BY u.full_name`
     );
     res.json(rows);
   } catch (err) {
@@ -243,6 +320,15 @@ export const assignTask = async (req, res) => {
 
     if (!task_id || !worker_id || !assigned_date)
       return res.status(400).json({ error: "task_id, worker_id and assigned_date are required" });
+    const [exists] = await db.query(
+      `SELECT assignment_id FROM task_assignments
+      WHERE task_id = ? AND worker_id = ? AND field_id = ? AND status = 'pending'`,
+      [task_id, worker_id, id]
+    );
+
+    if (exists.length) {
+      return res.status(400).json({ error: "Task already assigned to this worker" });
+    }
 
     const [result] = await db.query(
       `INSERT INTO task_assignments

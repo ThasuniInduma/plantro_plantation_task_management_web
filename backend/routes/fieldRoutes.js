@@ -9,6 +9,7 @@ import {
   getFieldTasks,
   getWorkers,
   assignTask,
+  removeSupervisorFromField,
 } from "../controllers/fieldController.js";
 
 const router = express.Router();
@@ -23,5 +24,6 @@ router.post("/",           createField);
 router.post("/:id/assign", assignTask);
 router.put("/:id",         updateField);
 router.delete("/:id",      deleteField);
+router.put("/:field_id/remove-supervisor", removeSupervisorFromField);
 
 export default router;
