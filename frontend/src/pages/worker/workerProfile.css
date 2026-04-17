@@ -439,6 +439,154 @@
   animation: spin 1s linear infinite;
 }
 
+/* ── Append these styles to your existing workerProfile.css ── */
+
+/* Skills display in view mode */
+.skills-display {
+  flex-wrap: wrap;
+  gap: 6px;
+  height: auto !important;
+  min-height: 44px;
+  padding: 8px 12px;
+}
+
+/* Skills grid (edit mode) */
+.skills-grid-profile {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.skill-chip-profile {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 14px;
+  border: 1.5px solid var(--neutral-200);
+  border-radius: 20px;
+  background: white;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--neutral-500);
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.skill-chip-profile:hover {
+  border-color: var(--accent-bright);
+  color: var(--primary-green);
+}
+
+.skill-chip-profile.selected {
+  background: var(--primary-green);
+  border-color: var(--primary-green);
+  color: white;
+}
+
+/* Skill tags (read + edit mode) */
+.skill-tag-profile {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(26, 77, 46, 0.08);
+  color: var(--primary-green);
+  border: 1px solid rgba(26, 77, 46, 0.2);
+  padding: 4px 10px 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.skill-tag-profile button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--primary-green);
+  display: flex;
+  align-items: center;
+  padding: 0;
+  transition: color 0.15s;
+}
+
+.skill-tag-profile button:hover { color: var(--danger); }
+
+.selected-skills-profile {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+/* Add skill button */
+.add-skill-btn-profile {
+  width: 42px;
+  height: 42px;
+  border: none;
+  border-radius: 10px;
+  background: var(--primary-green);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.2s;
+}
+
+.add-skill-btn-profile:hover:not(:disabled) { background: var(--accent-leaf); }
+.add-skill-btn-profile:disabled { background: var(--neutral-300); cursor: not-allowed; }
+
+/* Hours selector */
+.hours-selector-profile {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.hours-chip-profile {
+  width: 52px;
+  height: 42px;
+  border: 2px solid var(--neutral-200);
+  border-radius: 10px;
+  background: white;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--neutral-500);
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.hours-chip-profile:hover {
+  border-color: var(--accent-bright);
+  color: var(--primary-green);
+}
+
+.hours-chip-profile.selected {
+  background: var(--primary-green);
+  border-color: var(--primary-green);
+  color: white;
+}
+
+/* Loading spinner for tasks */
+.tasks-loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid var(--border-color);
+  border-top-color: var(--accent-bright);
+  border-radius: 50%;
+  animation: spin 0.9s linear infinite;
+  margin-bottom: 12px;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Marked attendance button */
+.attendance-btn.marked {
+  background: linear-gradient(135deg, var(--status-completed) 0%, #059669 100%);
+}
+
 @keyframes spin {
   to {
     transform: rotate(360deg);

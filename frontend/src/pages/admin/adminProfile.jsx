@@ -17,6 +17,7 @@ import {
   FiAlertCircle,
 } from 'react-icons/fi';
 
+
 const AdminProfile = () => {
   const navigate = useNavigate();
   const [adminData, setAdminData] = useState(null);
@@ -38,37 +39,46 @@ const AdminProfile = () => {
 
   // Fetch admin data
   useEffect(() => {
-    const fetchAdminData = async () => {
-      try {
-        const token = localStorage.getItem('token');
-        const response = await fetch('http://localhost:5000/api/auth/user/profile', {
-          method: 'GET',
+  const fetchAdminData = async () => {
+    try {
+      const token = localStorage.getItem("token");
+
+      const res = await fetch(
+        `${import.meta.env.VITE_BACKEND_URL}/api/auth/user/profile`,
+        {
           headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-          },
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          setAdminData(data);
-          setFormData({
-            full_name: data.full_name || '',
-            email: data.email || '',
-            phone: data.phone || '',
-          });
-        } else {
-          console.error('Failed to fetch admin data');
+            Authorization: `Bearer ${token}`
+          }
         }
-      } catch (error) {
-        console.error('Error fetching admin data:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
+      );
 
-    fetchAdminData();
-  }, []);
+      if (res.status === 401) {
+        localStorage.removeItem("token");
+        navigate("/login");
+        return;
+      }
+
+      const data = await res.json();
+
+      const user = data.user;
+
+      setAdminData(user);
+
+      setFormData({
+        full_name: user.full_name,
+        email: user.email,
+        phone: user.phone
+      });
+
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  fetchAdminData();
+}, []);
 
   const handleEdit = () => {
     setEditing(true);

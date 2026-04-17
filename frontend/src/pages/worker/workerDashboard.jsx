@@ -1,286 +1,352 @@
-import React, { useState, useEffect, useContext } from 'react';
-import { useNavigate } from 'react-router-dom';
-import SideNav from '../../components/SideNav';
+import React, { useState, useEffect, useContext, useCallback } from 'react';
 import { AppContext } from '../../context/AppContext';
 import axios from 'axios';
 import './workerDashboard.css';
 import {
-  FiArrowRight,
-  FiBell,
-  FiCheckCircle,
-  FiClock,
-  FiAlertCircle,
-  FiTrendingUp,
-  FiX,
-  FiCalendar,
-  FiMap,
-  FiUsers,
+  FiArrowRight, FiBell, FiCheckCircle, FiClock,
+  FiAlertCircle, FiTrendingUp, FiX, FiCalendar,
+  FiMap, FiUsers, FiRefreshCw, FiMapPin,
 } from 'react-icons/fi';
 
-const mockInitialTasks = [
-  {
-    id: 201,
-    date: '2026-01-28',
-    name: 'Fertilizing (NPK Mixture)',
-    field: 'Plot C-003 (Lower Field)',
-    crop: 'Cinnamon',
-    location: 'Grid 3N, Row 10-50',
-    estimatedTime: 5,
-    team: ['W002 - Kamal', 'W005 - Nimal'],
-    status: 'Assigned',
-    description: 'Apply NPK fertilizer mixture evenly across designated rows',
-    supervisor: 'S001 - Mr. Silva',
-    dueTime: '08:00 AM',
-  },
-  {
-    id: 202,
-    date: '2026-01-28',
-    name: 'Young Shoot Pruning',
-    field: 'Block F-001 (Hillside)',
-    crop: 'Tea',
-    location: 'Entrance Gate Section',
-    estimatedTime: 3,
-    team: ['None (Solo Task)'],
-    status: 'Assigned',
-    description: 'Prune young tea shoots to encourage proper growth',
-    supervisor: 'S001 - Mr. Silva',
-    dueTime: '02:00 PM',
-  },
-];
-
-const mockTomorrowTasks = [
-  {
-    id: 203,
-    date: '2026-01-29',
-    name: 'Tea Leaf Plucking',
-    field: 'Block F-001 (Hillside)',
-    crop: 'Tea',
-    location: 'Section A-B',
-    estimatedTime: 6,
-    team: ['W001 - You', 'W003 - Perera', 'W007 - Fernando'],
-    status: 'Scheduled',
-    description: 'Harvest tender tea leaves following standard plucking guidelines',
-    supervisor: 'S001 - Mr. Silva',
-    dueTime: '06:00 AM',
-  }
-];
+const tomorrowDate = () =>
+  new Date(Date.now() + 86_400_000).toISOString().split('T')[0];
 
 const WorkerDashboard = () => {
-  const navigate = useNavigate();
   const { userData, backendUrl } = useContext(AppContext);
-  
-  const [tasks, setTasks] = useState(mockInitialTasks);
-  const [tomorrowTasks, setTomorrowTasks] = useState(mockTomorrowTasks);
-  const [attendanceStatus, setAttendanceStatus] = useState('Pending');
-  const [activeTab, setActiveTab] = useState('worker');
+
+  const [tasks,           setTasks]           = useState([]);
+  const [tomorrowTasks,   setTomorrowTasks]   = useState([]);
+  const [loadingTasks,    setLoadingTasks]    = useState(true);
+  const [taskError,       setTaskError]       = useState(null);
+
+  const [attendanceStatus,  setAttendanceStatus]  = useState('Pending');
+  const [attendanceLoading, setAttendanceLoading] = useState(false);
+
+  const [activeTab,  setActiveTab]  = useState('worker');
   const [activedTab, setActivedTab] = useState('today');
-  const [selectedTask, setSelectedTask] = useState(null);
-  const [notifications, setNotifications] = useState([
-    { id: 1, message: 'New task assigned for tomorrow', time: '10 mins ago', read: false, type: 'info' },
-    { id: 2, message: 'Task completion confirmed by supervisor', time: '1 hour ago', read: false, type: 'success' },
-    { id: 3, message: 'Weather alert: Rain expected in afternoon', time: '2 hours ago', read: false, type: 'warning' },
-  ]);
+
+  // Replace useState([]) for notifications with:
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [showNotifications, setShowNotifications] = useState(false);
-  const [currentTime, setCurrentTime] = useState(new Date());
+  const [currentTime,       setCurrentTime]       = useState(new Date());
 
-  // States for Unable Today feature
-  const [taskReasons, setTaskReasons] = useState({});
+  const [taskReasons,     setTaskReasons]     = useState({});
   const [showReasonInput, setShowReasonInput] = useState({});
+  const [completing,      setCompleting]      = useState({});
 
-  // User display name
   const displayName = userData?.full_name || userData?.name || 'Worker';
-  const avatarLetter = displayName.charAt(0).toUpperCase();
 
-  
-
+  // Live clock
   useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-    return () => clearInterval(timer);
+    const t = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(t);
   }, []);
 
-  const handleUpdateStatus = (taskId, newStatus) => {
-    setTasks(prevTasks =>
-      prevTasks.map(task =>
-        task.id === taskId ? { ...task, status: newStatus } : task
-      )
-    );
-    
-    const task = tasks.find(t => t.id === taskId);
-    addNotification(`Task "${task.name}" status updated to ${newStatus}`, 'success');
-  };
-
-  const handleMarkAttendance = () => {
-    if (attendanceStatus === 'Pending') {
-      setAttendanceStatus('Marked');
-      addNotification('Attendance marked successfully for tomorrow', 'success');
-    } else {
-      setAttendanceStatus('Pending');
-      addNotification('Attendance unmarked', 'info');
+  // ── Fetch tasks ────────────────────────────────────────────────────────
+  const fetchTasks = useCallback(async () => {
+    try {
+      setLoadingTasks(true);
+      setTaskError(null);
+      const { data } = await axios.get(`${backendUrl}/api/worker/tasks`, {
+        withCredentials: true,
+      });
+      if (data.success) {
+        setTasks(data.todayTasks || []);
+        setTomorrowTasks(data.tomorrowTasks || []);
+      }
+    } catch (err) {
+      console.error('fetchTasks:', err);
+      setTaskError('Failed to load tasks. Please try again.');
+    } finally {
+      setLoadingTasks(false);
     }
-  };
+  }, [backendUrl]);
 
-  const addNotification = (message, type = 'info') => {
-    const newNotification = {
-      id: Date.now(),
+  useEffect(() => { fetchTasks(); }, [fetchTasks]);
+
+  // ── Fetch attendance ───────────────────────────────────────────────────
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data } = await axios.get(
+          `${backendUrl}/api/worker/attendance?date=${tomorrowDate()}`,
+          { withCredentials: true }
+        );
+        setAttendanceStatus(data.marked && data.status === 'available' ? 'Marked' : 'Pending');
+      } catch { /* silent */ }
+    })();
+  }, [backendUrl]);
+  
+    const addNotif = (message, type = 'info') => {
+    const newNotif = {
+      notification_id: Date.now(),
       message,
-      time: 'Just now',
-      read: false,
-      type
+      type,
+      is_read: false,
+      time: new Date().toLocaleTimeString(),
     };
-    setNotifications(prev => [newNotification, ...prev]);
+    const unreadCount = Array.isArray(notifications)
+      ? notifications.filter(n => !n.is_read).length
+      : 0;
+
+    setNotifications(prev => [newNotif, ...prev]);
+    setUnreadCount(prev => prev + 1);
   };
+  const fetchNotifications = useCallback(async () => {
+      try {
+        const { data } = await axios.get(`${backendUrl}/api/notifications`, { withCredentials: true });
+        if (Array.isArray(data)) {
+          setNotifications(data);
+          setUnreadCount(data.filter(n => !n.is_read).length);
+        }
+      } catch { /* silent */ }
+    }, [backendUrl]);
 
-  const markNotificationRead = (id) => {
-    setNotifications(prev =>
-      prev.map(notif => notif.id === id ? { ...notif, read: true } : notif)
-    );
-  };
+    useEffect(() => { fetchNotifications(); }, [fetchNotifications]);
 
-  const markAllAsRead = () => {
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-  };
+    // Poll every 30s for new notifications
+    useEffect(() => {
+      const interval = setInterval(fetchNotifications, 30000);
+      return () => clearInterval(interval);
+    }, [fetchNotifications]);
 
-  const unreadCount = notifications.filter(n => !n.read).length;
+    // Update markAllRead:
+    const markAllRead = async () => {
+      try {
+        await axios.put(`${backendUrl}/api/notifications/read-all`, {}, { withCredentials: true });
+        setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+        setUnreadCount(0);
+      } catch { /* silent */ }
+    };
 
-  const completedToday = tasks.filter(t => t.status === 'Completed').length;
-  const inProgress = tasks.filter(t => t.status === 'In Progress').length;
-  const pending = tasks.filter(t => t.status === 'Assigned').length;
-  const totalTasks = tasks.length;
-  const completionRate = totalTasks > 0 ? Math.round((completedToday / totalTasks) * 100) : 0;
-
-  // Unable Today feature handlers
-  const handleUnableToday = (task) => {
-    setShowReasonInput(prev => ({ ...prev, [task.id]: true }));
-  };
-
-  const submitReason = (task) => {
-    const reason = taskReasons[task.id];
-    if (!reason || reason.trim() === '') {
-      alert('Please enter a reason.');
-      return;
+  // ── Start (in_progress) ───────────────────────────────────────────────
+  const handleStartTask = async (taskId) => {
+    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: 'In Progress' } : t));
+    try {
+      await axios.put(
+        `${backendUrl}/api/worker/tasks/${taskId}/status`,
+        { status: 'in_progress' },
+        { withCredentials: true }
+      );
+      const task = tasks.find(t => t.id === taskId);
+      addNotif(`Started: "${task?.name}"`, 'info');
+    } catch (err) {
+      console.error(err);
+      addNotif('Failed to update status.', 'warning');
+      fetchTasks();
     }
-
-    const newTask = {
-      ...task,
-      status: 'Assigned',
-      description: `${task.description} (Postponed: ${reason})`,
-    };
-
-    setTomorrowTasks(prev => [...prev, newTask]);
-    setTasks(prev => prev.filter(t => t.id !== task.id));
-
-    setTaskReasons(prev => ({ ...prev, [task.id]: '' }));
-    setShowReasonInput(prev => ({ ...prev, [task.id]: false }));
-
-    addNotification(`Task "${task.name}" postponed to tomorrow`, 'info');
   };
 
-  const cancelReasonInput = (taskId) => {
-    setShowReasonInput(prev => ({ ...prev, [taskId]: false }));
-    setTaskReasons(prev => ({ ...prev, [taskId]: '' }));
+  // ── Complete — triggers pending_verification for supervisor ───────────
+  const handleCompleteTask = async (task) => {
+    if (completing[task.id]) return;
+    setCompleting(prev => ({ ...prev, [task.id]: true }));
+
+    // Optimistic update
+    setTasks(prev => prev.map(t =>
+      t.id === task.id
+        ? { ...t, status: 'Completed', pending_verification: true }
+        : t
+    ));
+
+    try {
+      if (task.schedule_id) {
+        // Primary path: sets pending_verification=1 on field_task_schedule
+        await axios.post(
+          `${backendUrl}/api/schedule/worker-complete`,
+          { assignment_id: task.id },
+          { withCredentials: true }
+        );
+      } else {
+        // Fallback: updateTaskStatus also sets pending_verification=1
+        await axios.put(
+          `${backendUrl}/api/worker/tasks/${task.id}/status`,
+          { status: 'completed' },
+          { withCredentials: true }
+        );
+      }
+      addNotif(`"${task.name}" marked done — awaiting supervisor approval ✓`, 'success');
+      await fetchTasks();
+    } catch (err) {
+      console.error(err);
+      addNotif('Failed to mark complete.', 'warning');
+      fetchTasks();
+    } finally {
+      setCompleting(prev => ({ ...prev, [task.id]: false }));
+    }
   };
+
+  // ── Postpone ──────────────────────────────────────────────────────────
+  const handleUnableToday = (task) =>
+    setShowReasonInput(prev => ({ ...prev, [task.id]: true }));
+
+  const submitReason = async (task) => {
+    const reason = taskReasons[task.id];
+    if (!reason?.trim()) { alert('Please enter a reason.'); return; }
+    try {
+      const { data } = await axios.post(
+        `${backendUrl}/api/worker/tasks/${task.id}/postpone`,
+        { reason },
+        { withCredentials: true }
+      );
+      if (data.success) {
+        addNotif(`"${task.name}" postponed to tomorrow.`, 'info');
+        setTaskReasons(prev => ({ ...prev, [task.id]: '' }));
+        setShowReasonInput(prev => ({ ...prev, [task.id]: false }));
+        await fetchTasks();
+      }
+    } catch { addNotif('Failed to postpone task.', 'warning'); }
+  };
+
+  const cancelReason = (id) => {
+    setShowReasonInput(prev => ({ ...prev, [id]: false }));
+    setTaskReasons(prev => ({ ...prev, [id]: '' }));
+  };
+
+  // ── Attendance ─────────────────────────────────────────────────────────
+  const handleMarkAttendance = async () => {
+    const newStatus = attendanceStatus === 'Pending' ? 'available' : 'unavailable';
+    setAttendanceLoading(true);
+    try {
+      const { data } = await axios.post(
+        `${backendUrl}/api/worker/attendance`,
+        { date: tomorrowDate(), available_hours: 8, status: newStatus },
+        { withCredentials: true }
+      );
+      if (data.success) {
+        setAttendanceStatus(newStatus === 'available' ? 'Marked' : 'Pending');
+        addNotif(
+          newStatus === 'available' ? 'Attendance confirmed ✓' : 'Attendance cancelled',
+          newStatus === 'available' ? 'success' : 'info'
+        );
+      }
+    } catch { addNotif('Failed to update attendance.', 'warning'); }
+    finally { setAttendanceLoading(false); }
+  };
+
+
+  // ── Metrics ───────────────────────────────────────────────────────────
+  const completedCount = tasks.filter(t => t.status === 'Completed').length;
+  const inProgressCount = tasks.filter(t => t.status === 'In Progress').length;
+  const pendingCount   = tasks.filter(t => t.status === 'Assigned').length;
+  const completionRate = tasks.length > 0
+    ? Math.round((completedCount / tasks.length) * 100) : 0;
 
   const getGreeting = () => {
-    const hour = currentTime.getHours();
-    if (hour < 12) return 'Good Morning';
-    if (hour < 18) return 'Good Afternoon';
-    return 'Good Evening';
+    const h = currentTime.getHours();
+    return h < 12 ? 'Good Morning' : h < 18 ? 'Good Afternoon' : 'Good Evening';
   };
+
+  const tomorrowLabel = new Date(Date.now() + 86_400_000)
+    .toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+
+  const displayTasks = activedTab === 'today' ? tasks : tomorrowTasks;
+
+  // Task card state styling
+  const getCardClass = (status) => {
+    if (status === 'Completed')  return 'completed';
+    if (status === 'In Progress') return 'in-progress';
+    return 'assigned';
+  };
+
+  const getStatusDot = (status) => {
+    if (status === 'Completed')   return '#10b981';
+    if (status === 'In Progress') return '#3b82f6';
+    return '#f59e0b';
+  };
+  const notifIcon = (type) => {
+  if (type === 'task_verified') return <FiCheckCircle color="#10b981"/>;
+  if (type === 'task_rejected') return <FiAlertCircle color="#ef4444"/>;
+  if (type === 'task_assigned') return <FiBell color="#3b82f6"/>;
+  return <FiBell color="#64748b"/>;
+};
 
   return (
     <div className="worker-dashboard-layout">
-      <SideNav
-                role="worker"
-                activeTab={activeTab}
-                setActiveTab={setActiveTab}
-                userName="worker"
-                userRole="worker"
-            />
-      
+
       <div className="main-content">
-        {/* Header */}
+        {/* ── Header ── */}
         <header className="content-header">
           <div className="header-left">
             <h1 className="page-title">My Dashboard</h1>
             <p className="page-subtitle">Track your daily tasks and progress</p>
           </div>
-
           <div className="header-actions">
-            <button 
-              className="notification-btn"
-              onClick={() => setShowNotifications(!showNotifications)}
-            >
-              <FiBell />
+            <button className="notification-btn"
+              onClick={() => setShowNotifications(v => !v)}>
+              <FiBell size={20}/>
               {unreadCount > 0 && <span className="notification-badge">{unreadCount}</span>}
+            </button>
+            <button className="notification-btn" onClick={fetchTasks} title="Refresh">
+              <FiRefreshCw size={18}/>
             </button>
           </div>
         </header>
 
-        {/* Notifications Dropdown */}
+        {/* Notifications */}
         {showNotifications && (
           <>
-            <div className="notification-overlay" onClick={() => setShowNotifications(false)}></div>
+            <div className="notification-overlay" onClick={() => setShowNotifications(false)}/>
             <div className="notifications-dropdown">
               <div className="notifications-header">
                 <h3>Notifications</h3>
                 {unreadCount > 0 && (
-                  <button className="mark-all-btn" onClick={markAllAsRead}>
-                    Mark all as read
-                  </button>
+                  <button className="mark-all-btn" onClick={markAllRead}>Mark all read</button>
                 )}
               </div>
               <div className="notifications-list">
                 {notifications.length === 0 ? (
                   <div className="empty-notifications">
                     <span className="empty-icon">📭</span>
-                    <p>No notifications</p>
+                    <p>No notifications yet</p>
                   </div>
-                ) : (
-                  notifications.map(notif => (
-                    <div 
-                      key={notif.id} 
-                      className={`notification-item ${notif.read ? '' : 'unread'} ${notif.type}`}
-                      onClick={() => markNotificationRead(notif.id)}
-                    >
-                      <div className="notif-icon">
-                        {notif.type === 'success' && <FiCheckCircle />}
-                        {notif.type === 'warning' && <FiAlertCircle />}
-                        {notif.type === 'info' && <FiBell />}
-                      </div>
-                      <div className="notif-content">
-                        <p className="notif-message">{notif.message}</p>
-                        <span className="notif-time">{notif.time}</span>
-                      </div>
+                ) : notifications.map(n => (
+                  <div key={n.notification_id}
+                    className={`notification-item ${n.is_read ? '' : 'unread'}`}
+                    onClick={async () => {
+                      if (!n.is_read) {
+                        await axios.put(`${backendUrl}/api/notifications/${n.notification_id}/read`, {}, { withCredentials: true });
+                        setNotifications(prev => prev.map(x => x.notification_id === n.notification_id ? { ...x, is_read: true } : x));
+                        setUnreadCount(prev => Math.max(0, prev - 1));
+                      }
+                    }}>
+                    <div className="notif-icon">
+                      {notifIcon(n.type)}
                     </div>
-                  ))
-                )}
+                    <div className="notif-content">
+                      <p className="notif-message">{n.message}</p>
+                      <span className="notif-time">{n.time}</span>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           </>
         )}
 
-        {/* Main Content */}
         <main className="content-body">
-          {/* Welcome Section */}
+          {/* Welcome */}
           <div className="welcome-section">
             <div className="welcome-card">
               <div className="welcome-text">
                 <h2>{getGreeting()}, {displayName}! 👋</h2>
-                <p>Here's your work overview for today</p>
+                <p>
+                  {tasks.length === 0
+                    ? 'No tasks assigned for today yet.'
+                    : `You have ${tasks.length} task${tasks.length !== 1 ? 's' : ''} today.`}
+                </p>
               </div>
               <div className="date-time-display">
                 <div className="date-info">
                   <span className="date">
-                    {currentTime.toLocaleDateString('en-US', { 
-                      weekday: 'short', 
-                      month: 'short', 
-                      day: 'numeric' 
+                    {currentTime.toLocaleDateString('en-US', {
+                      weekday: 'short', month: 'short', day: 'numeric'
                     })}
                   </span>
                   <span className="time">
-                    {currentTime.toLocaleTimeString('en-US', { 
-                      hour: '2-digit', 
-                      minute: '2-digit' 
+                    {currentTime.toLocaleTimeString('en-US', {
+                      hour: '2-digit', minute: '2-digit'
                     })}
                   </span>
                 </div>
@@ -288,141 +354,148 @@ const WorkerDashboard = () => {
             </div>
           </div>
 
-          {/* Metrics Grid */}
+          {/* Metrics */}
           <div className="metrics-section">
             <div className="metric-card completed">
-              <div className="metric-icon">
-                <FiCheckCircle size={28} />
-              </div>
+              <div className="metric-icon"><FiCheckCircle size={28}/></div>
               <div className="metric-content">
                 <h4>Completed</h4>
-                <p className="metric-value">{completedToday}</p>
-                <span className="metric-change positive">
-                  +{Math.max(0, completedToday - 2)} from yesterday
-                </span>
+                <p className="metric-value">{completedCount}</p>
+                <span className="metric-change positive">Today</span>
               </div>
             </div>
-
             <div className="metric-card progress">
-              <div className="metric-icon">
-                <FiClock size={28} />
-              </div>
+              <div className="metric-icon"><FiClock size={28}/></div>
               <div className="metric-content">
                 <h4>In Progress</h4>
-                <p className="metric-value">{inProgress}</p>
+                <p className="metric-value">{inProgressCount}</p>
                 <span className="metric-change neutral">Active now</span>
               </div>
             </div>
-
             <div className="metric-card pending">
-              <div className="metric-icon">
-                <FiAlertCircle size={28} />
-              </div>
+              <div className="metric-icon"><FiAlertCircle size={28}/></div>
               <div className="metric-content">
                 <h4>Pending</h4>
-                <p className="metric-value">{pending}</p>
+                <p className="metric-value">{pendingCount}</p>
                 <span className="metric-change neutral">Awaiting start</span>
               </div>
             </div>
-
             <div className="metric-card rate">
-              <div className="metric-icon">
-                <FiTrendingUp size={28} />
-              </div>
+              <div className="metric-icon"><FiTrendingUp size={28}/></div>
               <div className="metric-content">
                 <h4>Completion Rate</h4>
                 <p className="metric-value">{completionRate}%</p>
                 <div className="progress-bar">
-                  <div 
-                    className="progress-fill" 
-                    style={{ width: `${completionRate}%` }}
-                  ></div>
+                  <div className="progress-fill" style={{ width: `${completionRate}%` }}/>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Attendance Card */}
+          {/* Attendance */}
           <div className="attendance-section">
             <div className="attendance-card">
               <div className="attendance-header">
                 <div className="attendance-info">
                   <h3>Tomorrow's Attendance</h3>
-                  <p>
-                    Confirm your availability for {new Date(currentTime.getTime() + 86400000).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                  </p>
+                  <p>Confirm your availability for {tomorrowLabel}</p>
                 </div>
-                <button 
-                  className={`attendance-btn ${attendanceStatus.toLowerCase()}`}
+                <button
+                  className={`attendance-btn ${attendanceStatus === 'Marked' ? 'marked' : ''}`}
                   onClick={handleMarkAttendance}
-                >
+                  disabled={attendanceLoading}>
                   <span className="btn-icon">
-                    {attendanceStatus === 'Pending' ? <FiClock /> : <FiCheckCircle />}
+                    {attendanceStatus === 'Marked' ? <FiCheckCircle size={16}/> : <FiClock size={16}/>}
                   </span>
-                  {attendanceStatus === 'Pending' ? 'Mark Present' : 'Confirmed'}
+                  {attendanceLoading ? 'Saving…' :
+                   attendanceStatus === 'Marked' ? 'Confirmed ✓' : 'Mark Present'}
                 </button>
               </div>
             </div>
           </div>
 
-          {/* Tasks Section */}
+          {/* Tasks */}
           <div className="tasks-section">
             <div className="section-header">
               <h2>Your Tasks</h2>
               <div className="tab-buttons">
-                <button 
+                <button
                   className={`tab-btn ${activedTab === 'today' ? 'active' : ''}`}
-                  onClick={() => setActivedTab('today')}
-                >
-                  <FiCalendar />
-                  Today ({tasks.length})
+                  onClick={() => setActivedTab('today')}>
+                  <FiCalendar size={14}/> Today ({tasks.length})
                 </button>
-                <button 
+                <button
                   className={`tab-btn ${activedTab === 'tomorrow' ? 'active' : ''}`}
-                  onClick={() => setActivedTab('tomorrow')}
-                >
-                  <FiCalendar />
-                  Tomorrow ({tomorrowTasks.length})
+                  onClick={() => setActivedTab('tomorrow')}>
+                  <FiCalendar size={14}/> Tomorrow ({tomorrowTasks.length})
                 </button>
               </div>
             </div>
 
             <div className="tasks-container">
-              {(activedTab === 'today' ? tasks : tomorrowTasks).length === 0 ? (
+              {/* Loading */}
+              {loadingTasks && (
                 <div className="no-tasks">
-                  <span className="no-tasks-icon">
-                    <FiCheckCircle size={64} />
-                  </span>
-                  <h3>No tasks for {activedTab === 'today' ? 'today' : 'tomorrow'}</h3>
-                  <p>Enjoy your free time or check back later!</p>
+                  <div className="tasks-loading-spinner"/>
+                  <p>Loading tasks…</p>
                 </div>
-              ) : (
+              )}
+
+              {/* Error */}
+              {!loadingTasks && taskError && (
+                <div className="no-tasks">
+                  <FiAlertCircle size={40} color="#f59e0b"/>
+                  <h3 style={{ marginTop: 8 }}>{taskError}</h3>
+                  <button onClick={fetchTasks} style={{
+                    marginTop: 12, padding: '8px 20px',
+                    background: '#1a4d2e', color: 'white',
+                    border: 'none', borderRadius: 8, cursor: 'pointer',
+                    fontWeight: 600,
+                  }}>Retry</button>
+                </div>
+              )}
+
+              {/* Empty */}
+              {!loadingTasks && !taskError && displayTasks.length === 0 && (
+                <div className="no-tasks">
+                  <span className="no-tasks-icon">🌿</span>
+                  <h3>No tasks for {activedTab === 'today' ? 'today' : 'tomorrow'}</h3>
+                  <p>Check back later or contact your supervisor.</p>
+                </div>
+              )}
+
+              {/* Task grid */}
+              {!loadingTasks && !taskError && displayTasks.length > 0 && (
                 <div className="tasks-grid">
-                  {(activedTab === 'today' ? tasks : tomorrowTasks).map(task => (
-                    <div key={task.id} className={`task-card ${task.status.toLowerCase().replace(' ', '-')}`}>
+                  {displayTasks.map(task => (
+                    <div key={task.id}
+                      className={`task-card ${getCardClass(task.status)}`}>
+
+                      {/* Card Header */}
                       <div className="task-card-header">
-                        <div className="task-status-badge">{task.status}</div>
+                        <div className="task-status-badge">
+                          <span className="status-dot"
+                            style={{ background: getStatusDot(task.status) }}/>
+                          {task.status}
+                        </div>
                         <div className="task-time">
-                          <FiClock size={14} />
-                          {task.dueTime}
+                          <FiClock size={12}/> {task.estimatedTime}h
                         </div>
                       </div>
 
+                      {/* Title */}
                       <h3 className="task-title">{task.name}</h3>
-                      <p className="task-description">{task.description}</p>
+                      {task.description && (
+                        <p className="task-description">{task.description}</p>
+                      )}
 
+                      {/* Details grid */}
                       <div className="task-details-grid">
                         <div className="detail-item">
                           <span className="detail-label">
-                            <FiMap size={12} /> Field
+                            <FiMap size={10}/> Field
                           </span>
                           <p>{task.field}</p>
-                        </div>
-                        <div className="detail-item">
-                          <span className="detail-label">
-                            <FiClock size={12} /> Duration
-                          </span>
-                          <p>{task.estimatedTime}h</p>
                         </div>
                         <div className="detail-item">
                           <span className="detail-label">Crop</span>
@@ -430,99 +503,144 @@ const WorkerDashboard = () => {
                         </div>
                         <div className="detail-item">
                           <span className="detail-label">
-                            <FiUsers size={12} /> Team
+                            <FiMapPin size={10}/> Location
+                          </span>
+                          <p>{task.location || '—'}</p>
+                        </div>
+                        <div className="detail-item">
+                          <span className="detail-label">
+                            <FiUsers size={10}/> Team
                           </span>
                           <p>
-                            {task.team[0].includes('None') 
-                              ? 'Solo Task' 
-                              : `${task.team.length} members`}
+                            {task.team.length === 0 ? 'Solo task' :
+                             `+${task.team.length} teammate${task.team.length > 1 ? 's' : ''}`}
                           </p>
+                          {task.deadline_time && (
+                            <div className="detail-item">
+                              <span className="detail-label"><FiClock size={10}/> Deadline</span>
+                              <p style={{ color: '#ef4444', fontWeight: 700 }}>{task.deadline_time}</p>
+                            </div>
+                          )}
                         </div>
                       </div>
 
+                      {/* Teammates */}
+                      {task.team.length > 0 && (
+                        <div className="teammates-row">
+                          {task.team.slice(0, 3).map((name, i) => (
+                            <div key={i} className="teammate-chip">
+                              <div className="teammate-av">
+                                {name.charAt(0).toUpperCase()}
+                              </div>
+                              <span>{name.split(' ')[0]}</span>
+                            </div>
+                          ))}
+                          {task.team.length > 3 && (
+                            <span className="teammate-more">+{task.team.length - 3} more</span>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Supervisor */}
+                      {task.supervisor && task.supervisor !== 'N/A' && (
+                        <p className="supervisor-label">
+                          Supervisor: <strong>{task.supervisor}</strong>
+                        </p>
+                      )}
+
+                      {/* ── Actions — today only ── */}
                       {activedTab === 'today' && (
                         <div className="task-actions">
+
+                          {/* Assigned → can start */}
                           {task.status === 'Assigned' && (
                             <>
-                              <button 
-                                className="task-action-btn start-btn"
-                                onClick={() => handleUpdateStatus(task.id, 'In Progress')}
-                              >
-                                <FiArrowRight size={16} />
-                                Start Task
+                              <button className="task-action-btn start-btn"
+                                onClick={() => handleStartTask(task.id)}>
+                                <FiArrowRight size={15}/> Start Task
                               </button>
-                              <button
-                                className="task-action-btn unable-btn"
-                                onClick={() => handleUnableToday(task)}
-                              >
+                              <button className="task-action-btn unable-btn"
+                                onClick={() => handleUnableToday(task)}>
                                 Unable Today
                               </button>
                             </>
                           )}
+
+                          {/* In Progress → can complete or postpone */}
                           {task.status === 'In Progress' && (
                             <>
-                              <button 
-                                className="task-action-btn complete-btn"
-                                onClick={() => handleUpdateStatus(task.id, 'Completed')}
-                              >
-                                <FiCheckCircle size={16} />
-                                Complete
-                              </button>
                               <button
-                                className="task-action-btn unable-btn"
-                                onClick={() => handleUnableToday(task)}
-                              >
+                                className="task-action-btn complete-btn"
+                                onClick={() => handleCompleteTask(task)}
+                                disabled={completing[task.id]}>
+                                <FiCheckCircle size={15}/>
+                                {completing[task.id] ? 'Saving...' : 'Mark Complete'}
+                              </button>
+                              <button className="task-action-btn unable-btn"
+                                onClick={() => handleUnableToday(task)}>
                                 Unable Today
                               </button>
                             </>
                           )}
-                          {task.status === 'Completed' && (
+
+                          {/* Completed but awaiting supervisor verify */}
+                          {task.status === 'Completed' && task.pending_verification && (
+                            <div className="task-verify-badge">
+                              ⏳ Awaiting Supervisor Verification
+                            </div>
+                          )}
+
+                          {/* Completed and verified */}
+                          {task.status === 'Completed' && !task.pending_verification && (
                             <div className="task-completed-badge">
-                              <FiCheckCircle size={16} />
-                              Completed Successfully
+                              <FiCheckCircle size={15}/> Completed & Verified
                             </div>
                           )}
                         </div>
                       )}
 
-                      {/* Reason Modal */}
+                      {/* Tomorrow badge */}
+                      {activedTab === 'tomorrow' && (
+                        <div className="task-actions">
+                          <div className="task-tomorrow-badge">
+                            <FiCalendar size={13}/> Scheduled for tomorrow
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Reason modal */}
                       {showReasonInput[task.id] && (
-                        <div className="reason-modal-overlay" onClick={() => cancelReasonInput(task.id)}>
-                          <div className="reason-modal" onClick={(e) => e.stopPropagation()}>
+                        <div className="reason-modal-overlay"
+                          onClick={() => cancelReason(task.id)}>
+                          <div className="reason-modal"
+                            onClick={e => e.stopPropagation()}>
                             <div className="reason-modal-header">
-                              <h4>Unable to Complete Task</h4>
-                              <button 
-                                className="close-btn"
-                                onClick={() => cancelReasonInput(task.id)}
-                              >
-                                <FiX size={20} />
+                              <h4>Unable to Complete</h4>
+                              <button className="close-btn"
+                                onClick={() => cancelReason(task.id)}>
+                                <FiX size={18}/>
                               </button>
                             </div>
                             <div className="reason-modal-body">
-                              <label>Please provide a reason for postponing this task:</label>
+                              <label>Reason for postponing "{task.name}":</label>
                               <textarea
-                                placeholder="E.g., Equipment unavailable, weather conditions, health issues..."
+                                className="reason-input" rows={4} autoFocus
+                                placeholder="E.g., Equipment unavailable, weather conditions…"
                                 value={taskReasons[task.id] || ''}
-                                onChange={(e) =>
-                                  setTaskReasons(prev => ({ ...prev, [task.id]: e.target.value }))
-                                }
-                                className="reason-input"
-                                rows="4"
-                                autoFocus
+                                onChange={e => setTaskReasons(prev => ({
+                                  ...prev, [task.id]: e.target.value
+                                }))}
                               />
                             </div>
                             <div className="reason-modal-footer">
-                              <button
-                                className="reason-cancel-btn"
-                                onClick={() => cancelReasonInput(task.id)}
-                              >
+                              <button className="reason-cancel-btn"
+                                onClick={() => cancelReason(task.id)}>
                                 Cancel
                               </button>
                               <button
                                 className="reason-submit-btn"
                                 onClick={() => submitReason(task)}
-                                disabled={!taskReasons[task.id] || taskReasons[task.id].trim() === ''}
-                              >
+                                disabled={!taskReasons[task.id]?.trim()}>
                                 Postpone to Tomorrow
                               </button>
                             </div>

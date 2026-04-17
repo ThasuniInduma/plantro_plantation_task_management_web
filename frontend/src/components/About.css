@@ -79,17 +79,16 @@
 
 /* --- Stats/Data Side --- */
 .about-stats-side {
-    padding: 20px;
-    background: linear-gradient(135deg, var(--secondary-green) 0%, var(--primary-green) 100%);
     border-radius: 18px;
     box-shadow: 0 15px 40px rgba(0, 0, 0, 0.2);
 }
 
-.stats-box {
-    display: flex;
-    flex-direction: column;
-    gap: 30px;
-    padding: 20px 0;
+.stats-box img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 12px;
+  display: block;
 }
 
 .stat-item {

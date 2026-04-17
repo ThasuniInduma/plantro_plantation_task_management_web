@@ -139,7 +139,7 @@ const CropManagement = ({ logo }) => {
 
     const suggestions = allTasks.filter(t =>
         !alreadyAddedIds.has(Number(t.task_id)) &&
-        t.task_name.toLowerCase().includes(taskSearch.toLowerCase())
+        (t.task_name || '').toLowerCase().includes(taskSearch.toLowerCase())
     );
 
     const handleTaskNameInput = (val) => {
@@ -281,9 +281,9 @@ const CropManagement = ({ logo }) => {
         } catch { alert('Failed to delete task.'); }
     };
 
-    const filteredCrops = crops.filter(c =>
-        c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        c.description.toLowerCase().includes(searchTerm.toLowerCase())
+    const filteredCrops = (crops || []).filter(c =>
+    (c.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (c.description || '').toLowerCase().includes(searchTerm.toLowerCase())
     );
 
     const taskAccents = ['#4f7942', '#7cb342', '#2e7d32', '#558b2f', '#33691e'];

@@ -164,6 +164,10 @@ input[placeholder="Search workers..."] {
 .actions-cell .absent { background: #ef4444; color: white; }
 .actions-cell .late { background: #f59e0b; color: white; }
 .actions-cell .leave { background: #3b82f6; color: white; }
+.actions-cell .checkout {
+  background: #6366f1;
+  color: white;
+}
 
 .actions-cell button:hover {
   transform: scale(1.1);

@@ -27,14 +27,14 @@ const Footer = () => {
 
         <div className="footer-column contact-col">
           <h4>Contact Us</h4>
-          <p><FaMapMarkerAlt /> 123 Plantation Rd, Colombo, Sri Lanka</p>
+          <p><FaMapMarkerAlt /> Kekanadura, Sri Lanka</p>
           <p><FaEnvelope /> support@plantro.com</p>
           <p><FaPhone /> +94 71 123 4567</p>
         </div>
       </div>
 
       <div className="footer-bottom">
-        <p>&copy; {currentYear} Plantro. All rights reserved. | Built for BSc.IT IM/2022/091</p>
+        <p>&copy; {currentYear} Plantro. All rights reserved.</p>
       </div>
     </footer>
   );

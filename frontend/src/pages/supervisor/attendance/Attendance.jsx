@@ -28,7 +28,7 @@ const Attendance = () => {
 
   const fetchWorkers = async () => {
     try {
-      const res = await axios.get(`${backendUrl}/api/worker/workers`);
+      const res = await axios.get(`${backendUrl}/api/worker/my-workers`);
       setWorkers(res.data);
     } catch (err) {
       console.error(err);
@@ -48,7 +48,8 @@ const Attendance = () => {
       (res.data.data || []).forEach(r => {
         data[r.worker_id] = {
           status: r.status,
-          checkInTime: r.check_in
+          checkInTime: r.check_in,
+          checkOutTime: r.check_out
         };
       });
 
@@ -145,6 +146,21 @@ const Attendance = () => {
     }
   };
 
+  const markCheckout = (workerId) => {
+    if (!canMark) return;
+
+    setAttendanceRecords(prev => ({
+      ...prev,
+      [selectedDate]: {
+        ...prev[selectedDate],
+        [workerId]: {
+          ...prev[selectedDate]?.[workerId],
+          checkOutTime: new Date().toTimeString().slice(0, 8)
+        }
+      }
+    }));
+  };
+
   // ---------------- STATS ----------------
   const stats = {
     total: workers.length,
@@ -239,6 +255,7 @@ const Attendance = () => {
               <th>Name</th>
               <th>Status</th>
               <th>Check In</th>
+              <th>Check Out</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -259,7 +276,7 @@ const Attendance = () => {
                   </td>
 
                   <td>{r.checkInTime || '-'}</td>
-
+                  <td>{r.checkOutTime || '-'}</td>
                   <td className="actions-cell">
                     {canMark && (
                       <>
@@ -267,6 +284,7 @@ const Attendance = () => {
                         <button className="absent" onClick={() => markAttendance(w.worker_id, 'absent')}>Absent</button>
                         <button className="late" onClick={() => markAttendance(w.worker_id, 'late')}>Late</button>
                         <button className="leave" onClick={() => markAttendance(w.worker_id, 'leave')}>Leave</button>
+                        <button className="checkout" onClick={() => markCheckout(w.worker_id, 'checkout')}>Check Out</button>
                       </>
                     )}
                   </td>

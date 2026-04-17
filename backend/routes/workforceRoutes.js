@@ -16,7 +16,7 @@ import {
   demoteSupervisorToWorker,
 } from "../controllers/workforceController.js";
 
-import { authenticate } from "../middleware/authenticate.js";
+import { authenticate } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 

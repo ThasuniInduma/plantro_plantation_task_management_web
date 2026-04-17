@@ -20,7 +20,7 @@ const Navbar = () => {
                 <a href='#about' onClick={()=>setMenu("about")} className={menu==="about"?"active":""}>About</a>
                 <a href='#contact' onClick={()=>setMenu("contact")} className={menu==="contact"?"active":""}>Contact</a>
             </ul>
-            <button onClick={() => navigate('/login')}>Sign Up</button>
+            <button onClick={() => navigate('/login')}>Sign In</button>
         </div>
     )
 }

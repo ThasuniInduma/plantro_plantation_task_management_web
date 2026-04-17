@@ -13,6 +13,7 @@ export const markAttendance = async (req, res) => {
       date,
       r.status,
       r.checkInTime || null,
+      r.checkOutTime || null,
       userId,
       method
     ]);
@@ -23,11 +24,12 @@ export const markAttendance = async (req, res) => {
 
     await db.query(
       `INSERT INTO attendance 
-        (worker_id, date, status, check_in, marked_by, method)
+        (worker_id, date, status, check_in, check_out, marked_by, method)
        VALUES ?
        ON DUPLICATE KEY UPDATE
         status = VALUES(status),
         check_in = VALUES(check_in),
+        check_out = VALUES(check_out),
         marked_by = VALUES(marked_by),
         method = VALUES(method)`,
       [values]
@@ -51,6 +53,7 @@ export const getAttendanceByDate = async (req, res) => {
          a.date,
          a.status,
          a.check_in,
+         a.check_out,
          a.method,
          u.full_name
        FROM attendance a

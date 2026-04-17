@@ -4,7 +4,7 @@ import {
   getAttendanceByDate,
   selfCheckIn
 } from "../controllers/attendanceController.js";
-import { authenticate } from "../middleware/authenticate.js";
+import { authenticate } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 

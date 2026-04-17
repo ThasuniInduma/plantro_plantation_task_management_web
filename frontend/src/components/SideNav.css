@@ -269,6 +269,74 @@
     border-color: rgba(239, 68, 68, 0.2);
 }
 
+/* ──────────────────────────────────────────────────────────
+   ADD THESE RULES TO THE BOTTOM OF YOUR EXISTING SideNav.css
+   Do not replace anything — just append.
+   ────────────────────────────────────────────────────────── */
+
+/* 1. Hide the sidebar (slide it off-screen) */
+.sidebar.sidebar-hidden {
+  width: 0;
+  min-width: 0;
+  overflow: hidden;
+  border-right: none;
+  padding: 0;
+  transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 2. "Hide" button inside the sidebar — sits top-right */
+.sidebar-hide-btn {
+  position: absolute;
+  top: 12px;
+  right: 10px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px 4px 8px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 20px;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  z-index: 10;
+  white-space: nowrap;
+}
+
+.sidebar-hide-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* 3. Floating re-open tab — appears on the left edge when sidebar is hidden */
+.sidebar-open-btn {
+  position: fixed;
+  top: 50%;
+  left: 0;
+  transform: translateY(-50%);
+  width: 22px;
+  height: 56px;
+  background: #1a4d2e;
+  border: none;
+  border-radius: 0 8px 8px 0;
+  color: rgba(255, 255, 255, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 200;
+  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.2);
+  transition: width 0.15s, color 0.15s, background 0.15s;
+}
+
+.sidebar-open-btn:hover {
+  width: 28px;
+  color: #ffffff;
+  background: #4f7942;
+}
+
 /* ============================================
    RESPONSIVE DESIGN
    ============================================ */

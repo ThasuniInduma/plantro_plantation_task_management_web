@@ -40,8 +40,10 @@ export const getCropTasks = async (req, res) => {
 
 export const addCropTask = async (req, res) => {
   const conn = await db.getConnection();
+
   try {
     await conn.beginTransaction();
+
     const {
       crop_id,
       task_id,
@@ -51,38 +53,54 @@ export const addCropTask = async (req, res) => {
       estimated_man_hours
     } = req.body;
 
-    console.log("addCropTask body:", req.body);
-
     let finalTaskId = task_id ? Number(task_id) : null;
 
+    // 1. Create task if not exists
     if (!finalTaskId) {
       const [result] = await conn.query(
         "INSERT INTO tasks (task_name, description) VALUES (?, ?)",
         [task_name, description]
       );
       finalTaskId = result.insertId;
-      console.log("New task created, task_id:", finalTaskId);
     }
 
+    // 2. Insert crop_task
     const [cropTaskResult] = await conn.query(
       `INSERT INTO crop_tasks 
-         (crop_id, task_id, frequency_days, estimated_man_hours) 
+       (crop_id, task_id, frequency_days, estimated_man_hours) 
        VALUES (?, ?, ?, ?)`,
       [crop_id, finalTaskId, frequency_days, estimated_man_hours]
     );
 
+    const cropTaskId = cropTaskResult.insertId;
+
+    // 🔥 3. AUTO ADD TO EXISTING FIELDS
+    const [fields] = await conn.query(
+      "SELECT field_id FROM fields WHERE crop_id = ?",
+      [crop_id]
+    );
+
+    const today = new Date().toISOString().split("T")[0];
+
+    for (const f of fields) {
+      await conn.query(
+        `INSERT INTO field_task_schedule
+         (field_id, task_id, crop_task_id, next_due_date)
+         VALUES (?, ?, ?, ?)`,
+        [f.field_id, finalTaskId, cropTaskId, today]
+      );
+    }
+
     await conn.commit();
-    console.log("crop_task inserted, crop_task_id:", cropTaskResult.insertId);
 
     res.status(201).json({
-      crop_task_id: cropTaskResult.insertId,
+      crop_task_id: cropTaskId,
       crop_id: Number(crop_id),
       task_id: finalTaskId,
-      task_name,
-      description,
       frequency_days: Number(frequency_days),
       estimated_man_hours: Number(estimated_man_hours)
     });
+
   } catch (err) {
     await conn.rollback();
     console.error("addCropTask error:", err);

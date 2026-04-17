@@ -7,11 +7,18 @@ import cropRoutes from "./routes/cropRoutes.js";
 import taskRoutes from "./routes/taskRoutes.js";
 import fieldRoutes from "./routes/fieldRoutes.js";
 import workerRoutes from "./routes/workerRoutes.js";
+import assignmentRoutes from "./routes/taskAssignmentRoutes.js";
+import scheduleRoutes from "./routes/scheduleRoutes.js";
+import workforceRoutes from "./routes/workforceRoutes.js";   // ← ADD THIS
+import cron from "node-cron";
+import { generateSchedules } from "./services/schedulerService.js";
+import adminDashboardRoutes from "./routes/admindashboardRoutes.js";
+import attendanceRoutes from "./routes/attendanceRoutes.js";
+import notificationRoutes from "./routes/notificationRoutes.js";
 import { db } from "./config/db.js";
 
 dotenv.config();
 const app = express();
-
 app.use(express.json());
 app.use(cookieParser());
 app.use(cors({
@@ -24,5 +31,18 @@ app.use("/api/crops", cropRoutes);
 app.use("/api/tasks", taskRoutes);
 app.use("/api/fields", fieldRoutes);
 app.use("/api/worker", workerRoutes);
+app.use("/api/assignments", assignmentRoutes);
+app.use("/api/schedule", scheduleRoutes);
+app.use("/api/workforce", workforceRoutes);                 
+app.use("/api/admin/dashboard", adminDashboardRoutes);
+app.use("/api/attendance", attendanceRoutes);
+app.use("/api/notifications", notificationRoutes);
+
+generateSchedules();
+
+cron.schedule("0 0 * * *", async () => {
+  console.log("Running daily scheduler...");
+  await generateSchedules();
+});
 
 app.listen(process.env.PORT, () => console.log(`Server running on ${process.env.PORT}`));

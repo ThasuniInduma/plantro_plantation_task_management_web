@@ -42,9 +42,7 @@ const Services = () => {
           ))}
         </div>
 
-        <a href="#demo" className="services-cta-button">
-          Explore All Modules →
-        </a>
+        
       </div>
     </section>
   );
