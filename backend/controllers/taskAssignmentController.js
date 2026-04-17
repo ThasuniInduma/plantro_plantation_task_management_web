@@ -172,7 +172,11 @@ export const getAvailableWorkers = async (req, res) => {
 };
 // POST /api/assignments
 export const createAssignment = async (req, res) => {
+  const conn = await db.getConnection(); // 👈 for transaction safety
+
   try {
+    await conn.beginTransaction();
+
     const supervisorUserId = req.user?.id;
 
     if (!supervisorUserId) {
@@ -182,13 +186,12 @@ export const createAssignment = async (req, res) => {
     const {
       task_id,
       field_id,
-      worker_user_id, // this is USERS.user_id
+      worker_user_id,
       assigned_date,
       expected_hours,
-      remarks
+      remarks,
+      deadline_time
     } = req.body;
-
-    console.log("createAssignment body:", req.body);
 
     if (!task_id || !field_id || !worker_user_id || !assigned_date) {
       return res.status(400).json({
@@ -196,22 +199,60 @@ export const createAssignment = async (req, res) => {
       });
     }
 
-    // 🔥 FIX 1: Convert user_id → worker_id
-    const [workerRow] = await db.query(
+    // 1️⃣ Convert user_id → worker_id
+    const [workerRows] = await conn.query(
       `SELECT worker_id FROM workers WHERE user_id = ?`,
       [worker_user_id]
     );
 
-    if (!workerRow.length) {
+    if (!workerRows.length) {
+      return res.status(400).json({ error: "Worker not found" });
+    }
+
+    const workerId = workerRows[0].worker_id;
+
+    // 2️⃣ Lock worker row (prevents race condition)
+    const [workerData] = await conn.query(
+      `SELECT max_daily_hours FROM workers WHERE worker_id = ? FOR UPDATE`,
+      [workerId]
+    );
+
+    const maxHours = Number(workerData[0]?.max_daily_hours ?? 8);
+    if (workerData.length === 0) {
+      return res.status(400).json({ error: "Worker not found" });
+    }
+
+    if (maxHours == null) {
+      return res.status(400).json({ error: "Invalid worker" });
+    }
+
+    // 3️⃣ Calculate used hours
+    const [usedRows] = await conn.query(
+      `SELECT COALESCE(SUM(expected_hours),0) AS used
+       FROM task_assignments
+       WHERE worker_id = ?
+         AND assigned_date = ?
+         AND status != 'rejected'`,
+      [workerId, assigned_date]
+    );
+
+    const usedHours = Number(usedRows[0].used || 0);
+    const newHours = parseFloat(expected_hours);
+
+    if (isNaN(newHours) || newHours <= 0) {
+      return res.status(400).json({ error: "Invalid expected_hours" });
+    }
+
+    // 4️⃣ Capacity check
+    if (usedHours + newHours > maxHours) {
+      await conn.rollback();
       return res.status(400).json({
-        error: "Worker profile not found for this user"
+        error: `Worker exceeds daily limit (${usedHours + newHours}/${maxHours}h)`
       });
     }
 
-    const workerId = workerRow[0].worker_id;
-
-    // 🔥 FIX 2: Insert using worker_id (NOT user_id)
-    const [result] = await db.query(
+    // 5️⃣ Insert assignment
+    const [result] = await conn.query(
       `INSERT INTO task_assignments
        (task_id, field_id, worker_id, assigned_by, status, assigned_date, expected_hours, remarks)
        VALUES (?, ?, ?, ?, 'pending', ?, ?, ?)`,
@@ -221,44 +262,15 @@ export const createAssignment = async (req, res) => {
         workerId,
         supervisorUserId,
         assigned_date,
-        expected_hours || null,
+        newHours || null,
         remarks || null
       ]
     );
 
-    // Worker + task info
-    const [workerDetails] = await db.query(
-      `SELECT u.full_name, u.email, t.task_name, f.field_name, f.location
-       FROM users u
-       JOIN tasks t ON t.task_id = ?
-       JOIN fields f ON f.field_id = ?
-       WHERE u.user_id = ?`,
-      [task_id, field_id, worker_user_id]
-    );
+    await conn.commit();
 
-    if (workerDetails.length) {
-      const wd = workerDetails[0];
-      const deadlineStr = req.body.deadline_time
-        ? ` Deadline: ${req.body.deadline_time}.`
-        : "";
-
-      await createNotification(
-        worker_user_id,
-        `New Task: ${wd.task_name}`,
-        `You've been assigned "${wd.task_name}" at ${wd.field_name} on ${assigned_date}.${deadlineStr}`,
-        "task_assigned",
-        result.insertId
-      );
-
-      await sendTaskEmail(
-        wd.email,
-        wd.full_name,
-        `[Plantro] New Task: ${wd.task_name}`,
-        `<p>Hi ${wd.full_name}, you've been assigned <strong>${wd.task_name}</strong> at <strong>${wd.field_name}</strong> on ${assigned_date}.</p>`
-      );
-    }
-
-    const [rows] = await db.query(
+    // 6️⃣ Get full assignment data
+    const [rows] = await conn.query(
       `SELECT ta.*, u.full_name AS worker_name
        FROM task_assignments ta
        JOIN users u ON ta.worker_id = u.user_id
@@ -268,8 +280,11 @@ export const createAssignment = async (req, res) => {
 
     res.status(201).json(rows[0]);
   } catch (err) {
+    await conn.rollback();
     console.error("createAssignment:", err);
-    res.status(500).json({ error: err.message });
+    res.status(500).json({ error: "Database error" });
+  } finally {
+    conn.release();
   }
 };
 

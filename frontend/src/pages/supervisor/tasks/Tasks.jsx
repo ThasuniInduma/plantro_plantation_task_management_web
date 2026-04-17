@@ -129,8 +129,30 @@ const Tasks = () => {
   };
 
   // ── Confirm assign ────────────────────────────────────────────────────────
-  const handleConfirmAssign = async () => {
+const handleConfirmAssign = async () => {
   if (selectedWorkers.length === 0) return;
+
+  const taskHours = assignTarget.task.estimated_man_hours;
+
+  const totalTaskHours = assignTarget.task.estimated_man_hours;
+
+const totalAvailableHours = selectedWorkers.reduce((sum, workerId) => {
+  const worker = availWorkers.find(w => w.user_id === workerId);
+  return sum + (worker?.hours_remaining || 0);
+}, 0);
+
+if (totalAvailableHours < totalTaskHours) {
+  alert(
+    `Not enough workforce capacity. Need ${totalTaskHours}h but only ${totalAvailableHours}h available.`
+  );
+  return;
+}
+
+  if (invalidWorkers.length > 0) {
+    alert("One or more selected workers do not have enough available hours.");
+    return;
+  }
+
 
   setAssigning(true);
   try {

@@ -160,11 +160,11 @@ if (!supervisorUserId) {
 export const assignWorkerToScheduledTask = async (req, res) => {
   try {
     const supervisorUserId =
-  req.user?.id ?? Number(req.body.assigned_by);
+      req.user?.id ?? Number(req.body.assigned_by);
 
-if (!supervisorUserId) {
-  return res.status(401).json({ error: "Supervisor required" });
-}
+    if (!supervisorUserId) {
+      return res.status(401).json({ error: "Supervisor required" });
+    }
 
     const {
       schedule_id,
@@ -176,13 +176,17 @@ if (!supervisorUserId) {
     const assignDate =
       date || new Date().toISOString().split("T")[0];
 
-    // STEP 1: get schedule
+    // ── STEP 1: get schedule (YOUR DB)
     const [schedRows] = await db.query(
-      `SELECT fts.*, ct.estimated_man_hours, t.task_name, f.field_name, f.location
+      `SELECT 
+          fts.schedule_id,
+          fts.field_id,
+          fts.task_id,
+          ct.estimated_man_hours,
+          t.task_name
        FROM field_task_schedule fts
        JOIN crop_tasks ct ON fts.crop_task_id = ct.crop_task_id
        JOIN tasks t ON fts.task_id = t.task_id
-       JOIN fields f ON fts.field_id = f.field_id
        WHERE fts.schedule_id = ?`,
       [schedule_id]
     );
@@ -193,64 +197,58 @@ if (!supervisorUserId) {
 
     const sched = schedRows[0];
 
-    // STEP 2: convert user_id → worker_id (🔥 FIX)
+    // ── STEP 2: convert user_id → worker_id
     const [workerRow] = await db.query(
-      `SELECT worker_id FROM workers WHERE user_id = ?`,
+      `SELECT worker_id, max_daily_hours 
+       FROM workers 
+       WHERE user_id = ?`,
       [worker_user_id]
     );
 
     if (!workerRow.length) {
       return res.status(400).json({
-        error: `Worker profile not found for user_id ${worker_user_id}`
+        error: "Worker profile not found"
       });
     }
 
     const workerId = workerRow[0].worker_id;
+    const maxHours = workerRow[0].max_daily_hours || 8;
 
-    // STEP 3: validate worker exists (FK safety)
-    const [exists] = await db.query(
-      `SELECT worker_id FROM workers WHERE worker_id = ?`,
-      [workerId]
-    );
-
-    if (!exists.length) {
-      return res.status(400).json({
-        error: `Invalid worker_id ${workerId} (not in workers table)`
-      });
-    }
-
-    // STEP 4: check hours used
+    // ── STEP 3: calculate hours already used
     const [hoursUsedRows] = await db.query(
       `SELECT COALESCE(SUM(expected_hours),0) AS used
        FROM task_assignments
-       WHERE worker_id = ? AND assigned_date = ? AND status != 'rejected'`,
+       WHERE worker_id = ?
+         AND assigned_date = ?
+         AND status != 'rejected'`,
       [workerId, assignDate]
     );
 
     const used = Number(hoursUsedRows[0].used);
-    const maxHours = 8; // or from workers table if you want
     const remaining = maxHours - used;
 
     if (remaining <= 0) {
       return res.status(400).json({
-        error: "Worker has no remaining hours"
+        error: "Worker has no available hours today"
       });
     }
 
+    // ── STEP 4: hours to assign
     const hoursToAssign = Math.min(
       sched.estimated_man_hours,
       remaining
     );
 
-    // STEP 5: INSERT (FIXED FK)
+    // ── STEP 5: INSERT assignment
     const [result] = await db.query(
       `INSERT INTO task_assignments
-       (task_id, field_id, worker_id, assigned_by, status, assigned_date, expected_hours, deadline_time)
+       (task_id, field_id, worker_id, assigned_by, status,
+        assigned_date, expected_hours, deadline_time)
        VALUES (?, ?, ?, ?, 'pending', ?, ?, ?)`,
       [
         sched.task_id,
         sched.field_id,
-        workerId, // ✅ FIXED
+        workerId,
         supervisorUserId,
         assignDate,
         hoursToAssign,
@@ -258,20 +256,15 @@ if (!supervisorUserId) {
       ]
     );
 
-    // STEP 6: response
-    const [rows] = await db.query(
-      `SELECT ta.*, u.full_name AS worker_name
-       FROM task_assignments ta
-       JOIN workers w ON ta.worker_id = w.worker_id
-       JOIN users u ON w.user_id = u.user_id
-       WHERE ta.assignment_id = ?`,
-      [result.insertId]
-    );
-
+    // ── STEP 6: return response
     return res.status(201).json({
-      ...rows[0],
+      assignment_id: result.insertId,
+      worker_id: workerId,
+      task_id: sched.task_id,
+      field_id: sched.field_id,
       hours_assigned: hoursToAssign,
-      hours_remaining_after: remaining - hoursToAssign
+      hours_remaining: remaining - hoursToAssign,
+      message: "Worker assigned successfully"
     });
 
   } catch (err) {
@@ -279,7 +272,6 @@ if (!supervisorUserId) {
     res.status(500).json({ error: err.message });
   }
 };
-
 // ── POST /api/schedule/worker-complete
 // Worker marks their assignment as done — awaits supervisor verification
 export const workerMarkComplete = async (req, res) => {
