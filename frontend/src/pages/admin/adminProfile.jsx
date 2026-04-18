@@ -44,7 +44,7 @@ const AdminProfile = () => {
       const token = localStorage.getItem("token");
 
       const res = await fetch(
-        `${import.meta.env.VITE_BACKEND_URL}/api/auth/user/profile`,
+        `${import.meta.env.VITE_BACKEND_URL}/api/auth/user`,
         {
           headers: {
             Authorization: `Bearer ${token}`

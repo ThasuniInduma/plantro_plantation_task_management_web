@@ -53,6 +53,7 @@
   box-shadow: var(--shadow-sm);
 }
 
+
 .header-left {
   flex: 1;
 }
@@ -149,6 +150,10 @@
 .profile-content {
   padding: 32px;
   max-width: 900px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
 }
 
 /* Profile Card */
@@ -346,9 +351,9 @@
   box-shadow: var(--shadow-lg);
 }
 
-/* Security Section */
 .security-section {
   margin-top: 48px;
+  overflow: auto;
 }
 
 .section-title {
@@ -438,7 +443,6 @@
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }
-
 @keyframes spin {
   to {
     transform: rotate(360deg);

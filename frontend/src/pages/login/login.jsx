@@ -74,9 +74,13 @@ const Login = () => {
         );
 
         if (data.success) {
-          toast.success('Login successful');
-          setUserData(data.user);
-          setIsLoggedIn(true);
+  toast.success('Login successful');
+
+  setUserData(data.user);
+  setIsLoggedIn(true);
+
+  // 🔥 IMPORTANT FIX
+  localStorage.setItem("token", data.token);
 
           const roleName = data.user.role_name;
 

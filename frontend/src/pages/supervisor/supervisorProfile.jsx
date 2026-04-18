@@ -50,11 +50,11 @@ const SupervisorProfile = () => {
 
         const data = await response.json();
 
-console.log("PROFILE RESPONSE:", data);
+        console.log("PROFILE RESPONSE:", data);
 
-if (!response.ok || !data.user) {
-  throw new Error(data.message || "Invalid user data");
-}
+        if (!response.ok || !data.user) {
+          throw new Error(data.message || "Invalid user data");
+        }
 
         // 🔥 FIX HERE: extract user object
         const user = data.user;

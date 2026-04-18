@@ -17,14 +17,18 @@ export const createNotification = async (userId, title, message, type = 'task_as
 // ── Send email (internal helper) ───────────────────────────────────────────
 export const sendTaskEmail = async (toEmail, toName, subject, htmlBody) => {
   try {
+    console.log("📧 Sending email to:", toEmail); // 👈 add this
+
     await transporter.sendMail({
       from: `"Plantro Farm" <${process.env.EMAIL_USER}>`,
       to: toEmail,
       subject,
       html: htmlBody,
     });
+
+    console.log("✅ Email sent successfully"); // 👈 add this
   } catch (err) {
-    console.error('sendTaskEmail error:', err);
+    console.error('❌ sendTaskEmail error:', err);
   }
 };
 

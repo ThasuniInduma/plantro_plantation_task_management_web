@@ -1,607 +1,278 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import './supervisorDashboard.css';
 import {
-  FiPlus, FiClock, FiMapPin, FiUser,
-  FiCheck, FiX, FiAlertCircle, FiSkipForward,
-  FiThumbsUp, FiThumbsDown, FiUsers, FiCalendar,
-  FiCheckCircle, FiChevronDown, FiChevronUp
+  FiCalendar, FiCheckCircle, FiClock, FiAlertCircle,
+  FiTrendingUp, FiMapPin, FiUsers, FiRefreshCw,
+  FiArrowRight, FiChevronRight
 } from 'react-icons/fi';
+import './SupervisorDashboard.css';
 
 const BASE = 'http://localhost:8081/api';
 
-const SupervisorDashboard = ({ logo }) => {
+export default function SupervisorDashboard() {
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [taskView, setTaskView] = useState('today'); // 'today' | 'upcoming'
 
-  // ── Data ──────────────────────────────────────────────────────────────────
-  const [fieldsWithTasks, setFieldsWithTasks] = useState([]);
-  const [loading, setLoading]                 = useState(true);
-  const [viewMode, setViewMode]               = useState('today');    // 'today' | 'tomorrow'
-  const [expandedFields, setExpandedFields]   = useState({});
+  const [todayFields, setTodayFields] = useState([]);
+  const [upcoming, setUpcoming] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  // ── Stats ─────────────────────────────────────────────────────────────────
-  const [workers, setWorkers]       = useState([]);
-  const [attendance, setAttendance] = useState([]);
+  // Field overview stats
+  const [fields, setFields] = useState([]);
 
-  // ── Assign modal ──────────────────────────────────────────────────────────
-  const [showAssignModal, setShowAssignModal] = useState(false);
-  const [assignTarget, setAssignTarget]       = useState(null);
-  const [availWorkers, setAvailWorkers]       = useState([]);
-  const [selectedWorker, setSelectedWorker]   = useState('');
-  const [assigning, setAssigning]             = useState(false);
+  const headers = { 'Content-Type': 'application/json' };
 
-  // ── Verify modal ──────────────────────────────────────────────────────────
-  const [showVerifyModal, setShowVerifyModal] = useState(false);
-  const [verifyTarget, setVerifyTarget]       = useState(null);
-  const [rejectReason, setRejectReason]       = useState('');
-  const [verifying, setVerifying]             = useState(false);
-
-  // ── Add worker modal ──────────────────────────────────────────────────────
-  const [showAddWorker, setShowAddWorker] = useState(false);
-
-  const token   = localStorage.getItem('token');
-  const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
-
-  const today    = new Date().toISOString().split('T')[0];
-  const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
-
-  // ── Fetch ─────────────────────────────────────────────────────────────────
-  const fetchTasks = useCallback(async () => {
+  const fetchAll = useCallback(async () => {
     setLoading(true);
     try {
-      const date = viewMode === 'today' ? today : tomorrow;
-      const url  = viewMode === 'today'
-        ? `${BASE}/schedule/today`
-        : `${BASE}/assignments?date=${date}`;
+      const [tRes, uRes] = await Promise.all([
+        fetch(`${BASE}/schedule/today`, { headers, credentials: 'include' }),
+        fetch(`${BASE}/schedule/upcoming?days=7`, { headers, credentials: 'include' })
+      ]);
+      const tData = await tRes.json();
+      const uData = await uRes.json();
+      setTodayFields(Array.isArray(tData) ? tData : []);
+      setUpcoming(Array.isArray(uData) ? uData : []);
 
-      const res  = await fetch(url, { headers });
-      const data = await res.json();
-      const fields = Array.isArray(data) ? data : [];
-
-      if (viewMode === 'today') {
-        setFieldsWithTasks(fields);
-        const exp = {};
-        fields.forEach(f => { exp[f.field_id] = true; });
-        setExpandedFields(exp);
-      } else {
-        const normalised = fields.map(f => ({
-          ...f,
-          due_tasks: (f.crop_tasks || []).map(ct => ({
-            ...ct,
-            schedule_id:          null,
-            needs_verification:   false,
-            is_fully_assigned:    (ct.assignments?.length || 0) > 0,
-            total_hours_assigned: (ct.assignments || []).reduce((s, a) => s + (a.expected_hours || 0), 0),
-            days_overdue:         0,
-            last_done_date:       null
-          }))
-        }));
-        setFieldsWithTasks(normalised);
-        const exp = {};
-        normalised.forEach(f => { exp[f.field_id] = true; });
-        setExpandedFields(exp);
+      // Extract unique fields for overview
+      if (Array.isArray(tData)) {
+        setFields(tData.map(f => ({
+          field_id: f.field_id,
+          field_name: f.field_name,
+          location: f.location,
+          area: f.area,
+          crop_name: f.crop_name,
+          total_tasks: f.due_tasks?.length || 0,
+          assigned_tasks: f.due_tasks?.filter(t => (t.assignments?.length || 0) > 0).length || 0,
+          needs_verify: f.due_tasks?.filter(t => t.needs_verification).length || 0,
+        })));
       }
     } catch (err) {
-      console.error('fetchTasks error:', err);
-      setFieldsWithTasks([]);
+      console.error(err);
     } finally {
       setLoading(false);
     }
-  }, [viewMode]);
-
-  const fetchWorkers = useCallback(async () => {
-    try {
-      const res  = await fetch(`${BASE}/workers`, { headers });
-      const data = await res.json();
-      setWorkers(Array.isArray(data) ? data : []);
-    } catch { /* silent */ }
   }, []);
 
-  const fetchAttendance = useCallback(async () => {
-    try {
-      const res  = await fetch(`${BASE}/attendance/today`, { headers });
-      const data = await res.json();
-      setAttendance(Array.isArray(data) ? data : []);
-    } catch { /* silent */ }
-  }, []);
+  useEffect(() => { fetchAll(); }, [fetchAll]);
 
-  useEffect(() => { fetchTasks(); }, [fetchTasks]);
-  useEffect(() => { fetchWorkers(); fetchAttendance(); }, []);
+  // Stats
+  const allTasks = todayFields.flatMap(f => f.due_tasks || []);
+  const totalDue = allTasks.length;
+  const fullyAssigned = allTasks.filter(t => t.is_fully_assigned).length;
+  const needsVerify = allTasks.filter(t => t.needs_verification).length;
+  const overdue = allTasks.filter(t => (t.days_overdue || 0) > 0 && !t.needs_verification).length;
 
-  // ── Stats ─────────────────────────────────────────────────────────────────
-  const allTasks      = fieldsWithTasks.flatMap(f => f.due_tasks || []);
-  const totalTasks    = allTasks.length;
-  const assignedCount = allTasks.filter(t => (t.assignments?.length || 0) > 0 || t.is_fully_assigned).length;
-  const verifyCount   = allTasks.filter(t => t.needs_verification).length;
-  const overdueCount  = allTasks.filter(t => (t.days_overdue || 0) > 0 && !t.needs_verification).length;
-
-  // ── Assign ────────────────────────────────────────────────────────────────
-  const openAssign = async (task, field) => {
-    setAssignTarget({ task, field });
-    setSelectedWorker('');
-    try {
-      const url = viewMode === 'today'
-        ? `${BASE}/schedule/workers-available?date=${today}&field_id=${field.field_id}`
-        : `${BASE}/assignments/workers?date=${tomorrow}&field_id=${field.field_id}`;
-      const res  = await fetch(url, { headers });
-      const data = await res.json();
-      setAvailWorkers(Array.isArray(data) ? data : []);
-    } catch { setAvailWorkers([]); }
-    setShowAssignModal(true);
-  };
-
-  const handleConfirmAssign = async () => {
-    if (!selectedWorker) return;
-    setAssigning(true);
-    try {
-      let res;
-      if (viewMode === 'today' && assignTarget.task.schedule_id) {
-        res = await fetch(`${BASE}/schedule/assign`, {
-          method: 'POST', headers,
-          body: JSON.stringify({
-            schedule_id:    assignTarget.task.schedule_id,
-            worker_user_id: Number(selectedWorker),
-            date:           today
-          })
-        });
-      } else {
-        res = await fetch(`${BASE}/assignments`, {
-          method: 'POST', headers,
-          body: JSON.stringify({
-            task_id:        assignTarget.task.task_id || assignTarget.task.crop_task_id,
-            field_id:       assignTarget.field.field_id,
-            worker_user_id: Number(selectedWorker),
-            assigned_date:  viewMode === 'today' ? today : tomorrow,
-            expected_hours: assignTarget.task.estimated_man_hours
-          })
-        });
-      }
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed');
-      await fetchTasks();
-      setShowAssignModal(false);
-    } catch (err) {
-      alert('Failed to assign: ' + err.message);
-    } finally {
-      setAssigning(false);
-    }
-  };
-
-  const handleRemoveAssignment = async (assignmentId) => {
-    if (!window.confirm('Remove this assignment?')) return;
-    try {
-      await fetch(`${BASE}/assignments/${assignmentId}`, { method: 'DELETE', headers });
-      await fetchTasks();
-    } catch { alert('Failed to remove.'); }
-  };
-
-  // ── Verify ────────────────────────────────────────────────────────────────
-  const openVerify = (task, assignment) => {
-    setVerifyTarget({ task, assignment });
-    setRejectReason('');
-    setShowVerifyModal(true);
-  };
-
-  const handleVerify = async (action) => {
-    setVerifying(true);
-    try {
-      const res = await fetch(`${BASE}/schedule/verify`, {
-        method: 'POST', headers,
-        body: JSON.stringify({
-          schedule_id:   verifyTarget.task.schedule_id,
-          assignment_id: verifyTarget.assignment.assignment_id,
-          action,
-          reject_reason: rejectReason
-        })
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed');
-      await fetchTasks();
-      setShowVerifyModal(false);
-    } catch (err) {
-      alert(err.message);
-    } finally {
-      setVerifying(false);
-    }
-  };
-
-  // ── Dismiss ───────────────────────────────────────────────────────────────
-  const handleDismiss = async (scheduleId) => {
-    if (!window.confirm('Postpone this task to tomorrow?')) return;
-    try {
-      await fetch(`${BASE}/schedule/dismiss`, {
-        method: 'POST', headers,
-        body: JSON.stringify({ schedule_id: scheduleId })
-      });
-      await fetchTasks();
-    } catch { alert('Failed.'); }
-  };
-
-  // ── Urgency helpers ───────────────────────────────────────────────────────
   const urgencyColor = (task) => {
-    if (task.needs_verification)    return '#8b5cf6';
-    if ((task.days_overdue || 0) > 7)  return '#ef4444';
-    if ((task.days_overdue || 0) > 0)  return '#f59e0b';
+    if (task.needs_verification) return '#8b5cf6';
+    if ((task.days_overdue || 0) > 7) return '#ef4444';
+    if ((task.days_overdue || 0) > 0) return '#f59e0b';
     return '#10b981';
   };
+
   const urgencyLabel = (task) => {
-    if (task.needs_verification)     return 'Verify';
-    if ((task.days_overdue || 0) > 7)   return `${task.days_overdue}d overdue`;
-    if ((task.days_overdue || 0) > 0)   return `${task.days_overdue}d late`;
-    return 'On time';
+    if (task.needs_verification) return 'Verify';
+    if ((task.days_overdue || 0) > 7) return `${task.days_overdue}d overdue`;
+    if ((task.days_overdue || 0) > 0) return `${task.days_overdue}d late`;
+    return 'Today';
   };
 
-  // ── Task Card (compact) ───────────────────────────────────────────────────
-  const TaskCard = ({ task, field }) => {
-    const pendingVerify = task.assignments?.find(a => a.status === 'completed' && !a.verified_at);
-    const pct = Math.min(100,
-      ((task.total_hours_assigned || 0) / (task.estimated_man_hours || 1)) * 100
-    );
-    const hoursLeft = Math.max(0, (task.estimated_man_hours || 0) - (task.total_hours_assigned || 0));
-    const accentColor = urgencyColor(task);
-
-    return (
-      <div className={`sd-task-card ${task.needs_verification ? 'verify-card' : ''}`}
-           style={{ '--accent': accentColor }}>
-        {/* Top row: name + badge */}
-        <div className="sd-card-top">
-          <div className="sd-card-dot" style={{ background: accentColor }} />
-          <span className="sd-card-name">{task.task_name}</span>
-          <span className="sd-card-badge" style={{ background: accentColor + '20', color: accentColor }}>
-            {urgencyLabel(task)}
-          </span>
-        </div>
-
-        {/* Progress bar */}
-        <div className="sd-card-progress">
-          <div className="sd-progress-track">
-            <div className="sd-progress-fill"
-              style={{ width: `${pct}%`, background: task.is_fully_assigned ? '#10b981' : '#3b82f6' }} />
-          </div>
-          <span className="sd-progress-label">
-            {task.total_hours_assigned || 0}/{task.estimated_man_hours}h
-            {hoursLeft > 0 && ` · ${hoursLeft}h needed`}
-          </span>
-        </div>
-
-        {/* Meta row */}
-        <div className="sd-card-meta">
-          {task.estimated_man_hours && (
-            <span><FiClock size={11} /> {task.estimated_man_hours}h</span>
-          )}
-          {task.frequency_days && (
-            <span>Every {task.frequency_days}d</span>
-          )}
-          {task.last_done_date ? (
-            <span>Last: {new Date(task.last_done_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
-          ) : (
-            <span className="never-done">Never done</span>
-          )}
-        </div>
-
-        {/* Assigned workers */}
-        {task.assignments?.length > 0 && (
-          <div className="sd-card-workers">
-            {task.assignments.map(a => (
-              <div key={a.assignment_id} className="sd-worker-chip">
-                <div className="sd-worker-av">{(a.worker_name || '?').charAt(0)}</div>
-                <span>{a.worker_name}</span>
-                <span className="sd-worker-status"
-                  style={{
-                    background: a.status === 'completed' && !a.verified_at ? '#8b5cf6'
-                      : a.status === 'completed' ? '#10b981'
-                      : a.status === 'in_progress' ? '#3b82f6' : '#f59e0b'
-                  }}>
-                  {a.status === 'completed' && !a.verified_at ? '✓ Done' : a.status}
-                </span>
-                <button className="sd-remove-btn" onClick={() => handleRemoveAssignment(a.assignment_id)}>
-                  <FiX size={10} />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Actions */}
-        <div className="sd-card-actions">
-          {pendingVerify && (
-            <button className="sd-btn sd-btn-verify" onClick={() => openVerify(task, pendingVerify)}>
-              <FiThumbsUp size={12} /> Verify
-            </button>
-          )}
-          {!task.needs_verification && !task.is_fully_assigned && (
-            <button className="sd-btn sd-btn-assign" onClick={() => openAssign(task, field)}>
-              {(task.assignments?.length || 0) > 0 ? '+ Worker' : '→ Assign'}
-            </button>
-          )}
-          {task.is_fully_assigned && !task.needs_verification && (
-            <span className="sd-fully-assigned"><FiCheck size={11} /> Assigned</span>
-          )}
-          {viewMode === 'today' && !task.needs_verification
-           && (task.assignments?.length || 0) === 0 && task.schedule_id && (
-            <button className="sd-btn sd-btn-dismiss" onClick={() => handleDismiss(task.schedule_id)}
-                    title="Postpone to tomorrow">
-              <FiSkipForward size={12} />
-            </button>
-          )}
-        </div>
-      </div>
-    );
-  };
-
-  // ── Add Worker Form ───────────────────────────────────────────────────────
-  const AddWorkerModal = () => {
-    const [form, setForm] = useState({
-      name: '', phone: '', email: '', skills: '', maxHours: '8', preferredLocation: ''
-    });
-    const [saving, setSaving] = useState(false);
-
-    const handleSubmit = async () => {
-      if (!form.name.trim() || !form.email.trim()) return alert('Name and email are required.');
-      setSaving(true);
-      try {
-        const res = await fetch(`${BASE}/workers/invite`, {
-          method: 'POST', headers,
-          body: JSON.stringify({
-            full_name:  form.name,
-            email:      form.email,
-            phone:      form.phone,
-            skills:     form.skills.split(',').map(s => s.trim()).filter(Boolean),
-            max_daily_hours: Number(form.maxHours)
-          })
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Failed');
-        alert(`Worker ${form.name} added successfully!`);
-        setShowAddWorker(false);
-        fetchWorkers();
-      } catch (err) {
-        alert('Failed: ' + err.message);
-      } finally {
-        setSaving(false);
-      }
-    };
-
-    return (
-      <div className="sd-modal-overlay" onClick={() => setShowAddWorker(false)}>
-        <div className="sd-modal" onClick={e => e.stopPropagation()}>
-          <div className="sd-modal-header">
-            <h3>Add New Worker</h3>
-            <button className="sd-modal-close" onClick={() => setShowAddWorker(false)}><FiX size={18} /></button>
-          </div>
-          <div className="sd-modal-body">
-            {[
-              { label: 'Full Name *', key: 'name', type: 'text', placeholder: 'e.g. Kamal Perera' },
-              { label: 'Email *', key: 'email', type: 'email', placeholder: 'worker@email.com' },
-              { label: 'Phone', key: 'phone', type: 'tel', placeholder: '07XXXXXXXX' },
-              { label: 'Skills (comma-separated)', key: 'skills', type: 'text', placeholder: 'Tea Plucking, Weeding' },
-              { label: 'Max Hours/Day', key: 'maxHours', type: 'number', placeholder: '8' },
-            ].map(f => (
-              <div key={f.key} className="sd-form-group">
-                <label>{f.label}</label>
-                <input type={f.type} placeholder={f.placeholder}
-                  value={form[f.key]} onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))} />
-              </div>
-            ))}
-          </div>
-          <div className="sd-modal-footer">
-            <button className="sd-btn-cancel" onClick={() => setShowAddWorker(false)}>Cancel</button>
-            <button className="sd-btn-primary" onClick={handleSubmit} disabled={saving}>
-              {saving ? 'Saving...' : 'Add Worker'}
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  // ── Assign Modal ──────────────────────────────────────────────────────────
-  const AssignModal = () => (
-    <div className="sd-modal-overlay" onClick={() => setShowAssignModal(false)}>
-      <div className="sd-modal" onClick={e => e.stopPropagation()}>
-        <div className="sd-modal-header">
-          <div>
-            <h3>Assign Worker</h3>
-            <p>{assignTarget?.task?.task_name} — {assignTarget?.field?.field_name}</p>
-          </div>
-          <button className="sd-modal-close" onClick={() => setShowAssignModal(false)}><FiX size={18} /></button>
-        </div>
-        <div className="sd-modal-body">
-          {availWorkers.length === 0 ? (
-            <div className="sd-empty-state">
-              <FiAlertCircle size={28} />
-              <p>No available workers for this field</p>
-            </div>
-          ) : (
-            <div className="sd-worker-list">
-              {[...availWorkers]
-                .sort((a, b) => (b.hours_remaining || 0) - (a.hours_remaining || 0))
-                .map(w => (
-                  <div key={w.user_id || w.worker_id}
-                    className={`sd-worker-option ${String(selectedWorker) === String(w.user_id) ? 'selected' : ''}`}
-                    onClick={() => setSelectedWorker(w.user_id)}>
-                    <div className="sd-worker-av large">{(w.full_name || '?').charAt(0)}</div>
-                    <div className="sd-worker-info">
-                      <strong>{w.full_name}</strong>
-                      <span>{w.skills?.join(', ') || 'No skills listed'}</span>
-                      {w.hours_remaining !== undefined && (
-                        <>
-                          <div className="sd-hours-bar">
-                            <div className="sd-hours-fill"
-                              style={{ width: `${((w.hours_used || 0) / w.max_daily_hours) * 100}%` }} />
-                          </div>
-                          <span className={`sd-hours-text ${w.hours_remaining > 0 ? 'ok' : 'full'}`}>
-                            {w.hours_remaining}h of {w.max_daily_hours}h available
-                          </span>
-                        </>
-                      )}
-                    </div>
-                    <div className={`sd-radio ${String(selectedWorker) === String(w.user_id) ? 'on' : ''}`}>
-                      {String(selectedWorker) === String(w.user_id) && <FiCheck size={12} />}
-                    </div>
-                  </div>
-                ))}
-            </div>
-          )}
-        </div>
-        <div className="sd-modal-footer">
-          <button className="sd-btn-cancel" onClick={() => setShowAssignModal(false)}>Cancel</button>
-          <button className="sd-btn-primary" onClick={handleConfirmAssign}
-                  disabled={!selectedWorker || assigning}>
-            <FiCheck size={14} /> {assigning ? 'Assigning...' : 'Confirm'}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-
-  // ── Verify Modal ──────────────────────────────────────────────────────────
-  const VerifyModal = () => (
-    <div className="sd-modal-overlay" onClick={() => setShowVerifyModal(false)}>
-      <div className="sd-modal" onClick={e => e.stopPropagation()}>
-        <div className="sd-modal-header">
-          <div>
-            <h3>Verify Task Completion</h3>
-            <p>{verifyTarget?.task?.task_name} — {verifyTarget?.assignment?.worker_name}</p>
-          </div>
-          <button className="sd-modal-close" onClick={() => setShowVerifyModal(false)}><FiX size={18} /></button>
-        </div>
-        <div className="sd-modal-body">
-          <div className="sd-verify-info">
-            <div className="sd-verify-row"><span>Worker</span><strong>{verifyTarget?.assignment?.worker_name}</strong></div>
-            <div className="sd-verify-row"><span>Hours logged</span><strong>{verifyTarget?.assignment?.expected_hours}h</strong></div>
-            {verifyTarget?.task?.frequency_days && (
-              <div className="sd-verify-row"><span>Next due</span><strong>In {verifyTarget?.task?.frequency_days} days</strong></div>
-            )}
-          </div>
-          <p className="sd-verify-q">Was this task completed satisfactorily?</p>
-          <div className="sd-form-group">
-            <label>Rejection reason (required if rejecting)</label>
-            <textarea placeholder="e.g. Work incomplete, wrong area covered..."
-              value={rejectReason} onChange={e => setRejectReason(e.target.value)} rows={3} />
-          </div>
-        </div>
-        <div className="sd-modal-footer">
-          <button className="sd-btn-cancel" onClick={() => setShowVerifyModal(false)}>Cancel</button>
-          <button className="sd-btn-reject" onClick={() => handleVerify('reject')}
-                  disabled={verifying || !rejectReason.trim()}>
-            <FiThumbsDown size={13} /> Reject
-          </button>
-          <button className="sd-btn-approve" onClick={() => handleVerify('approve')} disabled={verifying}>
-            <FiThumbsUp size={13} /> {verifying ? 'Saving...' : 'Approve'}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-
-  // ── Render ────────────────────────────────────────────────────────────────
   return (
-    <div className="sd-layout">
-      
-      <div className="sd-main">
+    <div className="supdb-layout">
+
+
+      <div className="supdb-main">
         {/* Header */}
-        <header className="sd-header">
+        <header className="supdb-header">
           <div>
-            <h1 className="sd-title">Supervisor Dashboard</h1>
-            <p className="sd-subtitle">
-              {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+            <h1 className="supdb-title">Supervisor Dashboard</h1>
+            <p className="supdb-subtitle">
+              {new Date().toLocaleDateString('en-US', {
+                weekday: 'long', month: 'long', day: 'numeric', year: 'numeric'
+              })}
             </p>
           </div>
+          <button className="supdb-refresh-btn" onClick={fetchAll}>
+            <FiRefreshCw size={15} /> Refresh
+          </button>
         </header>
 
-        <div className="sd-body">
-          {/* Stats */}
-          <div className="sd-stats-row">
+        <div className="supdb-body">
+
+          {/* Stats Row */}
+          <div className="supdb-stats">
             {[
-              { label: 'Total Tasks',    val: totalTasks,    icon: <FiCalendar size={16} />,     cls: 'blue'   },
-              { label: 'Assigned',       val: assignedCount, icon: <FiUsers size={16} />,         cls: 'green'  },
-              { label: 'Needs Verify',   val: verifyCount,   icon: <FiCheckCircle size={16} />,   cls: 'purple' },
-              { label: 'Overdue',        val: overdueCount,  icon: <FiAlertCircle size={16} />,   cls: 'red'    },
-              { label: 'Workers',        val: workers.length, icon: <FiUser size={16} />,          cls: 'teal'   },
+              { icon: <FiCalendar size={18} />, label: 'Due Today', val: totalDue, cls: 'due' },
+              { icon: <FiUsers size={18} />, label: 'Assigned', val: fullyAssigned, cls: 'ok' },
+              { icon: <FiCheckCircle size={18} />, label: 'Needs Verify', val: needsVerify, cls: 'verify' },
+              { icon: <FiAlertCircle size={18} />, label: 'Overdue', val: overdue, cls: 'over' },
             ].map(s => (
-              <div key={s.label} className={`sd-stat-card ${s.cls}`}>
-                <div className="sd-stat-icon">{s.icon}</div>
+              <div key={s.label} className="supdb-stat">
+                <div className={`supdb-stat-ic ${s.cls}`}>{s.icon}</div>
                 <div>
-                  <p className="sd-stat-val">{s.val}</p>
-                  <p className="sd-stat-lbl">{s.label}</p>
+                  <p className="supdb-stat-n">{s.val}</p>
+                  <p className="supdb-stat-l">{s.label}</p>
                 </div>
               </div>
             ))}
           </div>
 
-          {/* View toggle */}
-          <div className="sd-toggle-row">
-            <div className="sd-toggle">
-              <button className={`sd-tog ${viewMode === 'today' ? 'on' : ''}`}
-                      onClick={() => setViewMode('today')}>
-                <FiCalendar size={13} /> Today
-              </button>
-              <button className={`sd-tog ${viewMode === 'tomorrow' ? 'on' : ''}`}
-                      onClick={() => setViewMode('tomorrow')}>
-                Tomorrow
-              </button>
-            </div>
+          {/* Field Overview Cards */}
+          <div className="supdb-section-title">
+            <FiMapPin size={16} /> Fields Overview
+          </div>
+          <div className="supdb-fields-grid">
+            {loading ? (
+              <div className="supdb-loading"><div className="supdb-spin" /><p>Loading...</p></div>
+            ) : fields.length === 0 ? (
+              <div className="supdb-empty"><p>No fields assigned to you.</p></div>
+            ) : fields.map(f => (
+              <div key={f.field_id} className="supdb-field-card">
+                <div className="supdb-field-top">
+                  <div>
+                    <h3>{f.field_name}</h3>
+                    <p className="supdb-field-loc"><FiMapPin size={11} /> {f.location}</p>
+                  </div>
+                  <span className="supdb-crop-badge">{f.crop_name}</span>
+                </div>
+                <div className="supdb-field-stats">
+                  <div className="supdb-field-stat">
+                    <span className="supdb-fs-label">Tasks Due</span>
+                    <span className="supdb-fs-val">{f.total_tasks}</span>
+                  </div>
+                  <div className="supdb-field-stat">
+                    <span className="supdb-fs-label">Assigned</span>
+                    <span className="supdb-fs-val ok">{f.assigned_tasks}</span>
+                  </div>
+                  <div className="supdb-field-stat">
+                    <span className="supdb-fs-label">Verify</span>
+                    <span className="supdb-fs-val verify">{f.needs_verify}</span>
+                  </div>
+                </div>
+                {f.total_tasks > 0 && (
+                  <div className="supdb-field-progress">
+                    <div className="supdb-progress-track">
+                      <div
+                        className="supdb-progress-fill"
+                        style={{ width: `${(f.assigned_tasks / f.total_tasks) * 100}%` }}
+                      />
+                    </div>
+                    <span>{Math.round((f.assigned_tasks / f.total_tasks) * 100)}% assigned</span>
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
 
-          {/* Task grid */}
-          <div className="sd-content">
-            {loading ? (
-              <div className="sd-loading">
-                <div className="sd-spinner" />
-                <p>Loading tasks...</p>
-              </div>
-            ) : fieldsWithTasks.length === 0 ? (
-              <div className="sd-empty-full">
-                <FiCheckCircle size={44} />
-                <h3>All clear!</h3>
-                <p>No tasks scheduled for {viewMode}.</p>
+          {/* Task Toggle */}
+          <div className="supdb-toggle-row">
+            <button
+              className={`supdb-tog ${taskView === 'today' ? 'on' : ''}`}
+              onClick={() => setTaskView('today')}
+            >
+              <FiCalendar size={14} /> Today's Tasks
+            </button>
+            <button
+              className={`supdb-tog ${taskView === 'upcoming' ? 'on' : ''}`}
+              onClick={() => setTaskView('upcoming')}
+            >
+              <FiTrendingUp size={14} /> Upcoming (7 Days)
+            </button>
+          </div>
+
+          {/* Task Content */}
+          {loading ? (
+            <div className="supdb-loading"><div className="supdb-spin" /><p>Loading tasks...</p></div>
+          ) : taskView === 'today' ? (
+            todayFields.length === 0 ? (
+              <div className="supdb-empty">
+                <FiCheckCircle size={36} />
+                <p>No tasks due today — all fields on schedule!</p>
               </div>
             ) : (
-              fieldsWithTasks.map(field => {
-                const tasks = field.due_tasks || [];
-                if (!tasks.length) return null;
-                const isExpanded = expandedFields[field.field_id] !== false;
-
-                return (
-                  <div key={field.field_id} className="sd-field-group">
-                    {/* Field header */}
-                    <div className="sd-field-header"
-                         onClick={() => setExpandedFields(p => ({ ...p, [field.field_id]: !isExpanded }))}>
-                      <div className="sd-field-header-left">
-                        <FiMapPin size={14} />
-                        <span className="sd-field-name">{field.field_name}</span>
-                        <span className="sd-crop-pill">{field.crop_name}</span>
-                        {field.location && <span className="sd-field-loc">{field.location}</span>}
+              <div className="supdb-task-list">
+                {todayFields.map(field =>
+                  (field.due_tasks || []).map(task => (
+                    <div
+                      key={`${field.field_id}-${task.schedule_id}`}
+                      className={`supdb-task-row ${task.needs_verification ? 'verify-row' : ''}`}
+                    >
+                      <div
+                        className="supdb-task-accent"
+                        style={{ background: urgencyColor(task) }}
+                      />
+                      <div className="supdb-task-info">
+                        <div className="supdb-task-top">
+                          <span className="supdb-task-name">{task.task_name}</span>
+                          <span
+                            className="supdb-task-badge"
+                            style={{
+                              background: urgencyColor(task) + '22',
+                              color: urgencyColor(task)
+                            }}
+                          >
+                            {urgencyLabel(task)}
+                          </span>
+                        </div>
+                        <p className="supdb-task-field">
+                          <FiMapPin size={11} /> {field.field_name} · {field.crop_name}
+                        </p>
+                        <p className="supdb-task-meta">
+                          <FiClock size={11} /> {task.total_hours_assigned || 0}/{task.estimated_man_hours}h assigned
+                          {(task.assignments?.length || 0) > 0 && (
+                            <span> · {task.assignments.length} worker{task.assignments.length !== 1 ? 's' : ''}</span>
+                          )}
+                        </p>
                       </div>
-                      <div className="sd-field-header-right">
-                        <span className="sd-task-count">{tasks.length} task{tasks.length !== 1 ? 's' : ''}</span>
-                        {isExpanded ? <FiChevronUp size={15} /> : <FiChevronDown size={15} />}
+                      <div className="supdb-task-status">
+                        {task.needs_verification ? (
+                          <span className="supdb-status-badge verify">Needs Verification</span>
+                        ) : task.is_fully_assigned ? (
+                          <span className="supdb-status-badge assigned">✓ Assigned</span>
+                        ) : (
+                          <span className="supdb-status-badge pending">Unassigned</span>
+                        )}
                       </div>
                     </div>
-
-                    {/* Task cards grid */}
-                    {isExpanded && (
-                      <div className="sd-tasks-grid">
-                        {tasks.map(task => (
-                          <TaskCard key={task.crop_task_id || task.schedule_id || task.task_id}
-                                    task={task} field={field} />
-                        ))}
-                      </div>
-                    )}
+                  ))
+                )}
+              </div>
+            )
+          ) : (
+            upcoming.length === 0 ? (
+              <div className="supdb-empty">
+                <FiCalendar size={36} /><p>No upcoming tasks in the next 7 days</p>
+              </div>
+            ) : (
+              <div className="supdb-upcoming-list">
+                {upcoming.map(row => (
+                  <div key={row.schedule_id} className="supdb-up-row">
+                    <div className="supdb-up-date">
+                      <strong>
+                        {new Date(row.next_due_date).toLocaleDateString('en-US', {
+                          month: 'short', day: 'numeric'
+                        })}
+                      </strong>
+                      <span>
+                        {row.days_until_due === 0 ? 'Today' :
+                          row.days_until_due === 1 ? 'Tomorrow' :
+                            `In ${row.days_until_due}d`}
+                      </span>
+                    </div>
+                    <div className="supdb-up-info">
+                      <strong>{row.task_name}</strong>
+                      <p>{row.field_name} · {row.crop_name}</p>
+                    </div>
+                    <div className="supdb-up-meta">
+                      <span><FiClock size={11} /> {row.estimated_man_hours}h</span>
+                      <span>Every {row.frequency_days}d</span>
+                    </div>
                   </div>
-                );
-              })
-            )}
-          </div>
+                ))}
+              </div>
+            )
+          )}
         </div>
       </div>
-
-      {/* Modals */}
-      {showAddWorker  && <AddWorkerModal />}
-      {showAssignModal && assignTarget && <AssignModal />}
-      {showVerifyModal && verifyTarget && <VerifyModal />}
     </div>
   );
-};
-
-export default SupervisorDashboard;
+}
