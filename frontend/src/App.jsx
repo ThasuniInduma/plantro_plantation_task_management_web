@@ -28,6 +28,7 @@ import FieldManagement from './pages/field/fieldManagement';
 import ReportManagement from './pages/report/reportManagement';
 import WorkforceManagement from './pages/workforce/workforceManagement';
 import WorkerSetup from './pages/worker/workerSetup';
+import Incidents from './pages/Incidents/incidents';
 
 function App() {
   return (
@@ -58,6 +59,7 @@ function App() {
               <Route path='supervisor/smart-schedule' element={<SmartSchedule />} />
               <Route path='attendance' element={<Attendance />} />
               <Route path='tasks' element={<Tasks />} />
+              <Route path='incidents' element={<Incidents />} />
 
               {/* Admin */}
               <Route path='admin' element={<AdminDashboard />} />

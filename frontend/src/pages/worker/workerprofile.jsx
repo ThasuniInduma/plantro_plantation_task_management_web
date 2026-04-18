@@ -26,7 +26,7 @@ const WorkerProfile = () => {
   const [saveStatus, setSaveStatus] = useState(null);
 
   const [formData, setFormData] = useState({
-    full_name: '', phone: '', skills: [], max_daily_hours: 8,
+    full_name: '', phone: '', skills: [], preferred_locations: [], max_daily_hours: 8,
   });
   const [customSkill, setCustomSkill] = useState('');
 
@@ -35,28 +35,62 @@ const WorkerProfile = () => {
     currentPassword: '', newPassword: '', confirmPassword: '',
   });
   const [passwordStatus, setPasswordStatus] = useState(null);
+  const [availableSkills, setAvailableSkills] = useState([]);
+const [availableLocations, setAvailableLocations] = useState([]);
 
   // Fetch profile
-  useEffect(() => {
-    const fetch = async () => {
-      try {
-        const { data } = await axios.get(`${backendUrl}/api/worker/profile`, { withCredentials: true });
-        setProfileData(data);
-        setFormData({
-          full_name: data.full_name || '',
-          phone: data.phone || '',
-          skills: data.skills || [],
-          max_daily_hours: data.max_daily_hours || 8,
-        });
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetch();
-  }, [backendUrl]);
+  // Replace the fetch in useEffect
+useEffect(() => {
+  const fetchProfile = async () => {
+    try {
+      const token = localStorage.getItem('token');
 
+      const [profileRes, tasksRes, locationsRes] = await Promise.all([
+        axios.get(`${backendUrl}/api/worker/profile`, {
+          headers: { Authorization: `Bearer ${token}` },
+          withCredentials: true
+        }),
+
+        axios.get(`${backendUrl}/api/tasks/all`, {
+          headers: { Authorization: `Bearer ${token}` },
+          withCredentials: true
+        }),
+        
+
+        axios.get(`${backendUrl}/api/fields`, {
+          headers: { Authorization: `Bearer ${token}` },
+          withCredentials: true
+        })
+      ]);
+
+      const profile = profileRes.data;
+      const tasks = tasksRes.data;
+      const locations = locationsRes.data;
+
+      setProfileData(profile);
+
+      setAvailableSkills((tasks || []).map(t => t.task_name));
+      setAvailableLocations([
+        ...new Set((locations || []).map(f => f.location))
+      ]);
+
+      setFormData({
+        full_name: profile.full_name || '',
+        phone: profile.phone || '',
+        skills: profile.skills || [],
+        preferred_locations: profile.preferred_locations || [],
+        max_daily_hours: profile.max_daily_hours || 8,
+      });
+
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  fetchProfile();
+}, [backendUrl]);
   const handleEdit = () => { setEditing(true); setSaveStatus(null); };
 
   const handleCancel = () => {
@@ -65,6 +99,7 @@ const WorkerProfile = () => {
       full_name: profileData?.full_name || '',
       phone: profileData?.phone || '',
       skills: profileData?.skills || [],
+      preferred_locations: profileData?.preferred_locations || [],
       max_daily_hours: profileData?.max_daily_hours || 8,
     });
   };
@@ -86,18 +121,27 @@ const WorkerProfile = () => {
     setFormData(p => ({ ...p, skills: p.skills.filter(s => s !== skill) }));
 
   const handleSave = async () => {
-    try {
-      const { data } = await axios.put(`${backendUrl}/api/worker/profile`, formData, { withCredentials: true });
-      setProfileData(data);
-      setUserData(p => ({ ...p, full_name: data.full_name, phone: data.phone }));
-      setEditing(false);
-      setSaveStatus('success');
-      setTimeout(() => setSaveStatus(null), 3000);
-    } catch {
-      setSaveStatus('error');
-      setTimeout(() => setSaveStatus(null), 3000);
-    }
-  };
+  try {
+    const token = localStorage.getItem('token');
+    const { data } = await axios.put(
+      `${backendUrl}/api/worker/profile`,
+      formData,
+      { headers: { Authorization: `Bearer ${token}` }, withCredentials: true }
+    );
+    // update local state with what the backend actually has
+    const refreshed = await axios.get(`${backendUrl}/api/worker/profile`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    setProfileData(refreshed.data);
+    setUserData(p => ({ ...p, full_name: refreshed.data.full_name, phone: refreshed.data.phone }));
+    setEditing(false);
+    setSaveStatus('success');
+    setTimeout(() => setSaveStatus(null), 3000);
+  } catch {
+    setSaveStatus('error');
+    setTimeout(() => setSaveStatus(null), 3000);
+  }
+};
 
   const handleChangePassword = async () => {
     if (passwordData.newPassword !== passwordData.confirmPassword) { setPasswordStatus('mismatch'); return; }
@@ -197,7 +241,7 @@ const WorkerProfile = () => {
                 {editing ? (
                   <>
                     <div className="skills-grid-profile">
-                      {SKILL_OPTIONS.map(skill => (
+                      {availableSkills.map(skill => (
                         <button key={skill} type="button"
                           className={`skill-chip-profile ${formData.skills.includes(skill) ? 'selected' : ''}`}
                           onClick={() => toggleSkill(skill)}>
@@ -216,7 +260,7 @@ const WorkerProfile = () => {
                       </button>
                     </div>
                     <div className="selected-skills-profile">
-                      {formData.skills.filter(s => !SKILL_OPTIONS.includes(s)).map(skill => (
+                      {formData.skills.filter(s => !availableSkills.includes(s)).map(skill => (
                         <span key={skill} className="skill-tag-profile">
                           {skill}
                           <button type="button" onClick={() => removeSkill(skill)}><FiX size={12}/></button>
@@ -231,6 +275,41 @@ const WorkerProfile = () => {
                       : (profileData?.skills || []).map(s => (
                           <span key={s} className="skill-tag-profile" style={{ pointerEvents:'none' }}>{s}</span>
                         ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Preferred Locations</label>
+
+                {editing ? (
+                  <div className="skills-grid-profile">
+                    {availableLocations.map(loc => (
+                      <button
+                        key={loc}
+                        type="button"
+                        className={`skill-chip-profile ${
+                          formData.preferred_locations.includes(loc) ? 'selected' : ''
+                        }`}
+                        onClick={() =>
+                          setFormData(p => ({
+                            ...p,
+                            preferred_locations: p.preferred_locations.includes(loc)
+                              ? p.preferred_locations.filter(l => l !== loc)
+                              : [...p.preferred_locations, loc],
+                          }))
+                        }
+                      >
+                        {formData.preferred_locations.includes(loc) && <FiCheck size={12} />}
+                        {loc}
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="form-display">
+                    {profileData?.preferred_locations?.length
+                      ? profileData.preferred_locations.join(', ')
+                      : 'Not provided'}
                   </div>
                 )}
               </div>

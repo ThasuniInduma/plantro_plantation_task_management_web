@@ -68,50 +68,45 @@ const Login = () => {
 
       } else {
         // ── Login ─────────────────────────────────────────────────────
-        const { data } = await axios.post(
-          `${backendUrl}/api/auth/login`,
-          { email, password }
-        );
+const response = await axios.post(
+  `${backendUrl}/api/auth/login`,
+  { email, password }
+);
 
-        if (data.success) {
+const data = response.data;
+
+console.log("FULL RESPONSE:", response);
+console.log("RESPONSE DATA:", data);
+
+if (data.success) {
+  const user = data.user;
+
+  // ✅ Clear old session first
+  localStorage.removeItem("token");
+  localStorage.removeItem("user");
+
   toast.success('Login successful');
 
-  setUserData(data.user);
+  setUserData(user);
   setIsLoggedIn(true);
 
-  // 🔥 IMPORTANT FIX
+  // ✅ Set fresh data
   localStorage.setItem("token", data.token);
+  localStorage.setItem("user", JSON.stringify(user));
 
-          const roleName = data.user.role_name;
+  const roleName = (user.role_name || '').trim().toUpperCase();
+  console.log("LOGIN ROLE:", roleName);
 
-          if (roleName === 'OWNER' || roleName === 'ADMIN') {
-            navigate('/admin');
-          } else if (roleName === 'SUPERVISOR') {
-            navigate('/supervisor');
-          } else if (roleName === 'WORKER') {
-            // ── Check if worker has completed profile setup ────────────
-            try {
-              const { data: profileStatus } = await axios.get(
-                `${backendUrl}/api/worker/profile-status`,
-                { withCredentials: true }
-              );
-
-              if (profileStatus.profileComplete) {
-                navigate('/worker/dashboard');
-              } else {
-                // First-time login → go to setup wizard
-                navigate('/worker/setup');
-              }
-            } catch {
-              // If check fails, go to dashboard as fallback
-              navigate('/worker/dashboard');
-            }
-          } else {
-            navigate('/');
-          }
-        } else {
-          toast.error(data.message || 'Login failed');
-        }
+  if (roleName === 'OWNER' || roleName === 'ADMIN') {
+    navigate('/admin');
+  } else if (roleName === 'SUPERVISOR') {
+    navigate('/supervisor');
+  } else if (roleName === 'WORKER') {
+    navigate('/worker/dashboard');
+  }
+} else {
+  toast.error(data.message || 'Login failed');
+}
       }
     } catch (error) {
       toast.error(error.response?.data?.message || error.message || 'Something went wrong');

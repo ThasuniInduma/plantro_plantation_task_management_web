@@ -15,6 +15,9 @@ import { generateSchedules } from "./services/schedulerService.js";
 import adminDashboardRoutes from "./routes/admindashboardRoutes.js";
 import attendanceRoutes from "./routes/attendanceRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
+import reportRoutes from "./routes/reportRoutes.js";
+import incidentRoutes from "./routes/incidentRoutes.js";
+import harvestRoutes from "./routes/harvestRoutes.js";
 import { db } from "./config/db.js";
 
 dotenv.config();
@@ -37,7 +40,9 @@ app.use("/api/workforce", workforceRoutes);
 app.use("/api/admin/dashboard", adminDashboardRoutes);
 app.use("/api/attendance", attendanceRoutes);
 app.use("/api/notifications", notificationRoutes);
-
+app.use("/api/reports", reportRoutes);
+app.use("/api/incidents", incidentRoutes);
+app.use("/api/harvest", harvestRoutes);
 generateSchedules();
 
 cron.schedule("0 0 * * *", async () => {

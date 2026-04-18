@@ -17,6 +17,14 @@ router.post("/register", register);
 router.post("/verify-account", verifyAccount);
 router.post("/resend-otp", resendOTP);
 router.post("/login", login);
+router.post("/logout", (req, res) => {
+  res.clearCookie("token", { 
+    httpOnly: true, 
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax"
+  });
+  return res.json({ success: true, message: "Logged out" });
+});
 
 router.get("/user", authenticate, getUser); 
 

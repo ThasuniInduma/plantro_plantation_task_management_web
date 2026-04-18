@@ -19,6 +19,7 @@ import {
 
 
 const AdminProfile = () => {
+  const API = import.meta.env.VITE_BACKEND_URL;
   const navigate = useNavigate();
   const [adminData, setAdminData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -44,7 +45,7 @@ const AdminProfile = () => {
       const token = localStorage.getItem("token");
 
       const res = await fetch(
-        `${import.meta.env.VITE_BACKEND_URL}/api/auth/user`,
+        `${API}/api/auth/user`,
         {
           headers: {
             Authorization: `Bearer ${token}`
@@ -105,7 +106,7 @@ const AdminProfile = () => {
   const handleSaveProfile = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:5000/api/auth/user/profile', {
+      const response = await fetch('http://localhost:8081/api/auth/user/profile', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -147,7 +148,7 @@ const AdminProfile = () => {
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:5000/api/auth/change-password', {
+      const response = await fetch('http://localhost:8081/api/auth/change-password', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

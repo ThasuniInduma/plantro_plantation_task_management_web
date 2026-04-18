@@ -6,23 +6,32 @@ import {
   markAttendance,
   getAttendanceStatus,
   getAllWorkers,
-  getWorkersForSupervisor
+  getWorkersForSupervisor,
+  getWorkerProfile,        // ← add
+  updateWorkerProfile,     // ← add
 } from "../controllers/workerController.js";
-
 import { authenticate } from "../middleware/authMiddleware.js";
+import { authorize } from "../middleware/authorize.js";
 
 const router = express.Router();
 
 router.use(authenticate);
-router.get("/workers", getAllWorkers);
-router.get("/my-workers", getWorkersForSupervisor);
-// TASKS
-router.get("/tasks", getWorkerTasks);
-router.put("/tasks/:assignmentId/status", updateTaskStatus);
-router.post("/tasks/:taskId/postpone", postponeTask);
 
-// ATTENDANCE
-router.post("/attendance", markAttendance);
-router.get("/attendance", getAttendanceStatus);
+// Admin / Supervisor
+router.get("/workers",    authorize("admin", "supervisor"), getAllWorkers);
+router.get("/my-workers", authorize("supervisor"),          getWorkersForSupervisor);
+
+// Worker profile  ← add these two
+router.get("/profile", authorize("worker"), getWorkerProfile);
+router.put("/profile", authorize("worker"), updateWorkerProfile);
+
+// Worker tasks
+router.get("/tasks",                        authorize("worker"), getWorkerTasks);
+router.put("/tasks/:assignmentId/status",   authorize("worker"), updateTaskStatus);
+router.post("/tasks/:taskId/postpone",      authorize("worker"), postponeTask);
+
+// Worker attendance
+router.post("/attendance", authorize("worker"), markAttendance);
+router.get("/attendance",  authorize("worker"), getAttendanceStatus);
 
 export default router;

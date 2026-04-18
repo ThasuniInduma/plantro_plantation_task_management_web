@@ -38,6 +38,11 @@ export default function SmartSchedule() {
     'Content-Type': 'application/json'
   };
   const today   = new Date().toISOString().split('T')[0];
+  const getToken = () => localStorage.getItem('token');
+  const getHeaders = () => ({
+  'Content-Type': 'application/json',
+  'Authorization': `Bearer ${getToken()}`
+});
 
 
   useEffect(() => { fetchAll(); }, []);
@@ -46,15 +51,15 @@ export default function SmartSchedule() {
     setLoading(true);
     try {
       const [tRes, uRes] = await Promise.all([
-        fetch(`${BASE}/schedule/today`, {
-          headers,
-          credentials: 'include'
-        }),
-        fetch(`${BASE}/schedule/upcoming?days=7`, {
-          headers,
-          credentials: 'include'
-        })
-      ]);
+  fetch(`${BASE}/schedule/today`, {
+    headers: getHeaders(),
+    credentials: 'include'
+  }),
+  fetch(`${BASE}/schedule/upcoming?days=7`, {
+    headers: getHeaders(),
+    credentials: 'include'
+  })
+]);
       const tData = await tRes.json();
       const uData = await uRes.json();
       setTodayFields(Array.isArray(tData) ? tData : []);
@@ -88,10 +93,13 @@ export default function SmartSchedule() {
   const loadWorkers = async (fieldId) => {
     setLoadingWorkers(true);
     try {
-      const res  = await fetch(
-        `${BASE}/schedule/workers-available?date=${today}&field_id=${fieldId}&task_id=${selectedTask.task_id}`,
-        { headers, credentials: 'include' }
-      );
+      const res = await fetch(
+  `${BASE}/schedule/workers-available?date=${today}&field_id=${fieldId}&task_id=${selectedTask.task_id}`,
+  {
+    headers: getHeaders(),
+    credentials: 'include'
+  }
+);
       const data = await res.json();
       setAvailWorkers(Array.isArray(data) ? data : []);
     } catch { setAvailWorkers([]); }
@@ -108,7 +116,7 @@ const handleAssign = async () => {
       selectedWorkers.map(workerId =>
         fetch(`${BASE}/schedule/assign`, {
           method: 'POST',
-          headers,
+          headers: getHeaders(),
           credentials: 'include',
           body: JSON.stringify({
             schedule_id: selectedTask.schedule_id,
@@ -136,7 +144,7 @@ const handleAssign = async () => {
     setVerifying(true);
     try {
       const res = await fetch(`${BASE}/schedule/verify`, {
-        method: 'POST', headers, credentials: 'include',
+        method: 'POST', headers: getHeaders(), credentials: 'include',
         body: JSON.stringify({
           schedule_id:   selectedTask.schedule_id,
           assignment_id: verifyAssign.assignment_id,
@@ -159,7 +167,7 @@ const handleAssign = async () => {
     if (!window.confirm('Postpone this task to tomorrow?')) return;
     try {
       await fetch(`${BASE}/schedule/dismiss`, {
-        method: 'POST', headers, credentials: 'include',
+        method: 'POST', headers: getHeaders(), credentials: 'include',
         body: JSON.stringify({ schedule_id: selectedTask.schedule_id })
       });
       await fetchAll();

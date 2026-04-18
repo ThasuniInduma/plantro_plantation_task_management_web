@@ -80,6 +80,7 @@ export const getAllWorkers = async (req, res) => {
           ? "Available"
           : "Not Available";
       }
+      const locations = parse(row.preferred_locations);
 
       return {
         user_id:            row.user_id,
@@ -91,7 +92,12 @@ export const getAllWorkers = async (req, res) => {
         role:               row.role_name === "SUPERVISOR" ? "Supervisor" : "Worker",
         status:             row.status === "ACTIVE" ? "active" : "inactive",
         specialty:          row.skills ? parse(row.skills) : [],
-        location:           row.preferred_locations ? parse(row.preferred_locations)[0] : "",
+        
+
+        location:
+          locations.length > 0
+            ? Number(locations[0])   // force clean numeric ID
+            : null,
         manHoursPerDay:     row.max_daily_hours || 8,
         assignedTasks,
         completionRate,
@@ -172,7 +178,7 @@ export const createWorker = async (req, res) => {
         [
           userId,
           JSON.stringify(specialty),
-          JSON.stringify([location]),
+          JSON.stringify((location || []).map(Number)),
           parseInt(manHoursPerDay) || 8,
         ]
       );
@@ -222,6 +228,7 @@ export const createWorker = async (req, res) => {
 ========================================================= */
 export const updateWorker = async (req, res) => {
   const conn = await db.getConnection();
+
   try {
     await conn.beginTransaction();
 
@@ -235,40 +242,107 @@ export const updateWorker = async (req, res) => {
       specialty,
       manHoursPerDay,
       field_id,
+      password,
     } = req.body;
 
-    // ── Basic user update ────────────────────────────────────
-    await conn.query(
-      "UPDATE users SET full_name = ?, email = ?, phone = ? WHERE user_id = ?",
-      [full_name, email, phone || null, userId]
-    );
+    /* =====================================================
+       1. UPDATE USERS TABLE (PARTIAL SAFE UPDATE)
+    ===================================================== */
+    const userUpdates = [];
+    const userValues = [];
 
-    const roleName = role === "Supervisor" ? "SUPERVISOR" : "WORKER";
-    const roleId   = await getRoleId(conn, roleName);
+    if (full_name !== undefined) {
+      userUpdates.push("full_name = ?");
+      userValues.push(full_name);
+    }
 
-    await conn.query(
-      "UPDATE users SET role_id = ? WHERE user_id = ?",
-      [roleId, userId]
-    );
+    if (email !== undefined) {
+      userUpdates.push("email = ?");
+      userValues.push(email);
+    }
 
-    if (roleName === "WORKER") {
+    if (phone !== undefined) {
+      userUpdates.push("phone = ?");
+      userValues.push(phone);
+    }
+
+    if (password && password.trim() !== "") {
+      const hashed = await bcrypt.hash(password, 10);
+      userUpdates.push("password = ?");
+      userValues.push(hashed);
+    }
+
+    let roleName = null;
+
+    if (role) {
+      roleName = role.toUpperCase() === "SUPERVISOR" ? "SUPERVISOR" : "WORKER";
+      const roleId = await getRoleId(conn, roleName);
+
+      userUpdates.push("role_id = ?");
+      userValues.push(roleId);
+    }
+
+    if (userUpdates.length > 0) {
       await conn.query(
-        `INSERT INTO workers (user_id, skills, preferred_locations, max_daily_hours, profile_completed)
-         VALUES (?, ?, ?, ?, 1)
-         ON DUPLICATE KEY UPDATE
-           skills               = VALUES(skills),
-           preferred_locations  = VALUES(preferred_locations),
-           max_daily_hours      = VALUES(max_daily_hours)`,
-        [
-          userId,
-          JSON.stringify(specialty || []),
-          JSON.stringify([location]),
-          parseInt(manHoursPerDay) || 8,
-        ]
+        `UPDATE users SET ${userUpdates.join(", ")} WHERE user_id = ?`,
+        [...userValues, userId]
       );
-    } else {
-      // Editing a supervisor — update their field
-      if (!field_id) throw new Error("Field is required for Supervisor");
+    }
+
+    /* =====================================================
+       2. WORKER TABLE UPDATE (NO STRICT VALIDATION ON UPDATE)
+    ===================================================== */
+    if (!roleName || roleName === "WORKER") {
+
+  const [existingRows] = await conn.query(
+  "SELECT * FROM workers WHERE user_id = ?",
+  [userId]
+);
+
+const existing = existingRows[0];
+const isCreate = !existing;
+
+const finalLocation =
+  location !== undefined ? location : JSON.parse(existing?.preferred_locations || "[]");
+
+const finalSpecialty =
+  specialty !== undefined ? specialty : JSON.parse(existing?.skills || "[]");
+
+const finalHours =
+  manHoursPerDay !== undefined ? manHoursPerDay : existing?.max_daily_hours;
+
+// validation only on create
+if (isCreate) {
+  if (!finalLocation.length || !finalSpecialty.length || !finalHours) {
+    throw new Error("Location, specialty, and hours/day are required for workers");
+  }
+}
+
+await conn.query(
+  `INSERT INTO workers 
+    (user_id, skills, preferred_locations, max_daily_hours, profile_completed)
+   VALUES (?, ?, ?, ?, 1)
+   ON DUPLICATE KEY UPDATE
+     skills = VALUES(skills),
+     preferred_locations = VALUES(preferred_locations),
+     max_daily_hours = VALUES(max_daily_hours)`,
+  [
+    userId,
+    JSON.stringify(finalSpecialty),
+    JSON.stringify(finalLocation.map(Number)),
+    parseInt(finalHours || 8),
+  ]
+);
+}
+    /* =====================================================
+       3. SUPERVISOR UPDATE
+    ===================================================== */
+    if (roleName === "SUPERVISOR") {
+      if (!field_id) {
+        throw new Error("Field is required for Supervisor");
+      }
+
+      await conn.query("DELETE FROM workers WHERE user_id = ?", [userId]);
 
       await conn.query(
         `INSERT INTO supervisors (user_id, field_id)
@@ -276,20 +350,23 @@ export const updateWorker = async (req, res) => {
          ON DUPLICATE KEY UPDATE field_id = VALUES(field_id)`,
         [userId, field_id]
       );
-
     }
 
     await conn.commit();
-    res.json({ success: true, message: "Worker updated successfully" });
+
+    res.json({
+      success: true,
+      message: "Worker updated successfully",
+    });
+
   } catch (err) {
     await conn.rollback();
     console.error("updateWorker error:", err);
-    res.status(500).json({ message: err.message });
+    res.status(400).json({ message: err.message });
   } finally {
     conn.release();
   }
 };
-
 /* =========================================================
    DELETE WORKER
 ========================================================= */

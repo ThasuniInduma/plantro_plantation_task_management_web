@@ -5,14 +5,14 @@ export const authenticate = async (req, res, next) => {
   try {
     let token = null;
 
-    // From cookie
-    if (req.cookies?.token) {
-      token = req.cookies.token;
+    // ✅ Bearer token FIRST (highest priority)
+    if (req.headers.authorization?.startsWith("Bearer ")) {
+      token = req.headers.authorization.split(" ")[1];
     }
 
-    // From header
-    if (!token && req.headers.authorization?.startsWith("Bearer ")) {
-      token = req.headers.authorization.split(" ")[1];
+    // ✅ Cookie ONLY as fallback
+    if (!token && req.cookies?.token) {
+      token = req.cookies.token;
     }
 
     if (!token) {
@@ -21,9 +21,8 @@ export const authenticate = async (req, res, next) => {
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    // 🔥 Fetch role from DB
     const [rows] = await db.query(
-      `SELECT u.user_id, u.full_name, r.role_name
+      `SELECT u.user_id, u.role_id, u.full_name, r.role_name
        FROM users u
        JOIN roles r ON u.role_id = r.role_id
        WHERE u.user_id = ?`,
@@ -41,7 +40,6 @@ export const authenticate = async (req, res, next) => {
     };
 
     next();
-
   } catch (err) {
     return res.status(401).json({ message: "Invalid or expired token" });
   }

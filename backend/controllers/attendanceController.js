@@ -3,7 +3,7 @@ import { db } from "../config/db.js";
 // ✅ Supervisor / Owner marking
 export const markAttendance = async (req, res) => {
   const { date, records, mode } = req.body;
-  const userId = req.userId;
+  const userId = req.user.id; // ✅ FIXED: was req.userId
 
   try {
     const method = mode === "remote" ? "system" : "manual";
@@ -72,7 +72,7 @@ export const getAttendanceByDate = async (req, res) => {
 
 // ✅ Worker self check-in
 export const selfCheckIn = async (req, res) => {
-  const userId = req.userId;
+  const userId = req.user.id; // ✅ FIXED: was req.userId
   const today = new Date().toISOString().split("T")[0];
 
   try {

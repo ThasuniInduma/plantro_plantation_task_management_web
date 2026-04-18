@@ -1,4 +1,6 @@
 import { db } from "../config/db.js";
+import { createNotification, sendTaskEmail } from "./notificationController.js";
+
 
 // GET /api/assignments?date=2026-01-28
 export const getTasksForDate = async (req, res) => {
@@ -41,16 +43,20 @@ export const getTasksForDate = async (req, res) => {
       [cropIds]
     );
 
-    const [existing] = await db.query(
-      `SELECT ta.assignment_id, ta.task_id, ta.field_id,
-              ta.worker_id, ta.status, ta.assigned_date,
-              ta.expected_hours, ta.actual_hours, ta.remarks,
-              u.full_name AS worker_name
-       FROM task_assignments ta
-       JOIN users u ON ta.worker_id = u.user_id
-       WHERE ta.field_id IN (?) AND ta.assigned_date = ?`,
-      [fieldIds, date]
-    );
+    const placeholders = fieldIds.map(() => '?').join(',');
+
+const [existing] = await db.query(
+  `SELECT ta.assignment_id, ta.task_id, ta.field_id,
+          ta.worker_id, ta.status, ta.assigned_date,
+          ta.expected_hours, ta.actual_hours, ta.remarks,
+          u.full_name AS worker_name
+   FROM task_assignments ta
+   JOIN workers w ON ta.worker_id = w.worker_id
+   JOIN users u ON w.user_id = u.user_id
+   WHERE ta.field_id IN (${placeholders})
+   AND DATE(ta.assigned_date) = ?`,
+  [...fieldIds, date]
+);
 
     const result = fields.map(field => {
       const fieldCropTasks = cropTasks.filter(ct => ct.crop_id === field.crop_id);
@@ -269,11 +275,53 @@ export const createAssignment = async (req, res) => {
 
     await conn.commit();
 
+    // 7️⃣ Get worker info for notification
+    const [workerInfo] = await db.query(
+      `SELECT u.user_id, u.full_name, u.email
+      FROM users u
+      WHERE u.user_id = ?`,
+      [worker_user_id]
+    );
+
+    if (workerInfo.length) {
+      const worker = workerInfo[0];
+
+      // 🔔 Create in-app notification
+      await createNotification(
+        worker.user_id,
+        "📌 New Task Assigned",
+        `You have been assigned a new task (Task ID: ${task_id}) for ${assigned_date}.`,
+        "task_assigned",
+        result.insertId
+      );
+
+      console.log("📢 Creating assignment...");
+      console.log("📧 Sending email to:", worker.email);
+
+      // 📧 Send email
+      await sendTaskEmail(
+        worker.email,
+        worker.full_name,
+        "New Task Assigned - Plantro",
+        `
+          <p>Hi ${worker.full_name},</p>
+          <p>You have been assigned a new task.</p>
+          <ul>
+            <li><strong>Task ID:</strong> ${task_id}</li>
+            <li><strong>Date:</strong> ${assigned_date}</li>
+            <li><strong>Expected Hours:</strong> ${newHours}</li>
+          </ul>
+          <p>Please check your dashboard for more details.</p>
+        `
+      );
+    }
+
     // 6️⃣ Get full assignment data
     const [rows] = await conn.query(
       `SELECT ta.*, u.full_name AS worker_name
        FROM task_assignments ta
-       JOIN users u ON ta.worker_id = u.user_id
+       JOIN workers w ON ta.worker_id = w.worker_id
+        JOIN users u ON w.user_id = u.user_id
        WHERE ta.assignment_id = ?`,
       [result.insertId]
     );
@@ -306,7 +354,8 @@ export const updateAssignment = async (req, res) => {
     const [rows] = await db.query(
       `SELECT ta.*, u.full_name AS worker_name
        FROM task_assignments ta
-       JOIN users u ON ta.worker_id = u.user_id
+       JOIN workers w ON ta.worker_id = w.worker_id
+JOIN users u ON w.user_id = u.user_id
        WHERE ta.assignment_id = ?`,
       [id]
     );
@@ -351,14 +400,34 @@ export const getCalendarDots = async (req, res) => {
     const fieldIds = fields.map(f => f.field_id);
 
     const startDate = `${month}-01`;
-    const endDate   = `${month}-31`;
+    const end = new Date(`${month}-01`);
+end.setMonth(end.getMonth() + 1);
+end.setDate(0);
 
+const endDate = end.toISOString().split("T")[0];
     const [rows] = await db.query(
-      `SELECT assigned_date, COUNT(*) AS task_count
-       FROM task_assignments
-       WHERE field_id IN (?) AND assigned_date BETWEEN ? AND ?
-       GROUP BY assigned_date`,
-      [fieldIds, startDate, endDate]
+      `SELECT date, SUM(task_count) AS task_count
+FROM (
+  -- Assigned tasks
+  SELECT assigned_date AS date, COUNT(*) AS task_count
+  FROM task_assignments
+  WHERE field_id IN (?) 
+    AND assigned_date BETWEEN ? AND ?
+  GROUP BY assigned_date
+
+  UNION ALL
+
+  -- Smart scheduled tasks (due tasks)
+  SELECT next_due_date AS date, COUNT(*) AS task_count
+  FROM field_task_schedule
+  WHERE field_id IN (?) 
+    AND next_due_date BETWEEN ? AND ?
+    AND is_dismissed = 0
+  GROUP BY next_due_date   -- ✅ FIX HERE
+
+) combined
+GROUP BY date`,
+      [fieldIds, startDate, endDate, fieldIds, startDate, endDate]
     );
 
     res.json(rows);
@@ -378,7 +447,7 @@ export const getAssignmentHistory = async (req, res) => {
     const days = Number(req.query.days) || 30;
  
     const [fields] = await db.query(
-      "SELECT field_id FROM fields WHERE supervisor_id = ?",
+      "SELECT f.field_id FROM fields f JOIN supervisors s ON f.field_id = s.field_id WHERE s.user_id = ?",
       [supervisorUserId]
     );
     if (!fields.length) return res.json([]);
@@ -406,7 +475,8 @@ export const getAssignmentHistory = async (req, res) => {
        JOIN tasks  t ON ta.task_id  = t.task_id
        JOIN fields f ON ta.field_id = f.field_id
        JOIN crops  c ON f.crop_id   = c.crop_id
-       JOIN users  u ON ta.worker_id = u.user_id
+       JOIN workers w ON ta.worker_id = w.worker_id
+JOIN users u ON w.user_id = u.user_id
        WHERE ta.field_id IN (?)
          AND ta.assigned_date >= DATE_SUB(CURDATE(), INTERVAL ? DAY)
        ORDER BY ta.assigned_date DESC, ta.assignment_id DESC`,

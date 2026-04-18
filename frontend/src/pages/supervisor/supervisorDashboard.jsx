@@ -9,6 +9,19 @@ import './SupervisorDashboard.css';
 const BASE = 'http://localhost:8081/api';
 
 export default function SupervisorDashboard() {
+
+  const [harvestModal, setHarvestModal] = useState(false);
+
+const [harvestData, setHarvestData] = useState({
+  field_id: "",
+  worker_id: "",
+  crop_id: "",
+  task_id: "",
+  quantity: "",
+  unit: "kg",
+  harvest_date: ""
+});
+
   const [activeTab, setActiveTab] = useState('dashboard');
   const [taskView, setTaskView] = useState('today'); // 'today' | 'upcoming'
 
@@ -20,10 +33,16 @@ export default function SupervisorDashboard() {
   const [fields, setFields] = useState([]);
 
   const headers = { 'Content-Type': 'application/json' };
+  const getToken = () => localStorage.getItem('token');
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
     try {
+      const token = getToken();
+      const headers = {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    };
       const [tRes, uRes] = await Promise.all([
         fetch(`${BASE}/schedule/today`, { headers, credentials: 'include' }),
         fetch(`${BASE}/schedule/upcoming?days=7`, { headers, credentials: 'include' })
@@ -75,6 +94,49 @@ export default function SupervisorDashboard() {
     if ((task.days_overdue || 0) > 0) return `${task.days_overdue}d late`;
     return 'Today';
   };
+
+  const handleHarvestChange = (e) => {
+  setHarvestData({
+    ...harvestData,
+    [e.target.name]: e.target.value
+  });
+};
+const addHarvest = async () => {
+  try {
+    const token = getToken();
+
+    const res = await fetch(`${BASE}/harvest/add`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify(harvestData)
+    });
+
+    const data = await res.json();
+
+    if (data.success) {
+      alert("Harvest added successfully!");
+      setHarvestModal(false);
+
+      // reset form
+      setHarvestData({
+        field_id: "",
+        worker_id: "",
+        crop_id: "",
+        task_id: "",
+        quantity: "",
+        unit: "kg",
+        harvest_date: ""
+      });
+    } else {
+      alert(data.message || "Failed to add harvest");
+    }
+  } catch (err) {
+    console.error(err);
+  }
+};
 
   return (
     <div className="supdb-layout">
@@ -162,6 +224,76 @@ export default function SupervisorDashboard() {
               </div>
             ))}
           </div>
+
+          {/* Harvest Action Card */}
+<div className="supdb-section-title">
+  🌾 Harvest Management
+</div>
+
+<div className="supdb-harvest-card">
+  <div className="supdb-harvest-info">
+    <h3>Record Harvest</h3>
+    <p>Add harvest of the field</p>
+  </div>
+
+  <button
+    className="supdb-harvest-btn"
+    onClick={() => setHarvestModal(true)}
+  >
+    + Add Harvest
+  </button>
+</div>
+{harvestModal && (
+  <div className="supdb-modal-backdrop">
+    <div className="supdb-modal">
+
+      <h3>Add Harvest Record</h3>
+
+      <div className="supdb-form-grid">
+
+        <select name="field_id" onChange={handleHarvestChange}>
+  <option value="">Select Field</option>
+  {fields.map(f => (
+    <option key={f.field_id} value={f.field_id}>
+      {f.field_name}
+    </option>
+  ))}
+</select>
+
+
+<input
+  name="quantity"
+  type="number"
+  placeholder="Quantity"
+/>
+
+<select name="unit" onChange={handleHarvestChange}>
+  <option value="kg">kg</option>
+  <option value="liter">liter</option>
+  <option value="count">count</option>
+</select>
+
+<input
+  type="date"
+  name="harvest_date"
+  onChange={handleHarvestChange}
+/>
+
+      </div>
+
+      <div className="supdb-modal-actions">
+        <button onClick={() => setHarvestModal(false)}>
+          Cancel
+        </button>
+
+        <button className="primary" onClick={addHarvest}>
+          Save Harvest
+        </button>
+      </div>
+
+    </div>
+  </div>
+)}
 
           {/* Task Toggle */}
           <div className="supdb-toggle-row">

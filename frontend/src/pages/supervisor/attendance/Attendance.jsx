@@ -27,13 +27,20 @@ const Attendance = () => {
   }, []);
 
   const fetchWorkers = async () => {
-    try {
-      const res = await axios.get(`${backendUrl}/api/worker/my-workers`);
-      setWorkers(res.data);
-    } catch (err) {
-      console.error(err);
-    }
-  };
+  try {
+    const res = await axios.get(
+      `${backendUrl}/api/worker/my-workers`,
+      {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`
+        }
+      }
+    );
+    setWorkers(res.data);
+  } catch (err) {
+    console.error(err);
+  }
+};
 
   // ---------------- FETCH ATTENDANCE ----------------
   useEffect(() => {
@@ -41,27 +48,34 @@ const Attendance = () => {
   }, [selectedDate]);
 
   const fetchAttendance = async () => {
-    try {
-      const res = await axios.get(`${backendUrl}/api/attendance/${selectedDate}`);
+  try {
+    const res = await axios.get(
+      `${backendUrl}/api/attendance/${selectedDate}`,
+      {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`
+        }
+      }
+    );
 
-      const data = {};
-      (res.data.data || []).forEach(r => {
-        data[r.worker_id] = {
-          status: r.status,
-          checkInTime: r.check_in,
-          checkOutTime: r.check_out
-        };
-      });
+    const data = {};
+    (res.data.data || []).forEach(r => {
+      data[r.worker_id] = {
+        status: r.status,
+        checkInTime: r.check_in,
+        checkOutTime: r.check_out
+      };
+    });
 
-      setAttendanceRecords(prev => ({
-        ...prev,
-        [selectedDate]: data
-      }));
+    setAttendanceRecords(prev => ({
+      ...prev,
+      [selectedDate]: data
+    }));
 
-    } catch (err) {
-      console.error(err);
-    }
-  };
+  } catch (err) {
+    console.error(err);
+  }
+};
 
   const currentDayAttendance = attendanceRecords[selectedDate] || {};
 
@@ -134,11 +148,19 @@ const Attendance = () => {
   // ---------------- SAVE ----------------
   const saveAttendance = async () => {
     try {
-      await axios.post(`${backendUrl}/api/attendance`, {
-        date: selectedDate,
-        records: attendanceRecords[selectedDate],
-        mode: 'manual'
-      });
+      await axios.post(
+  `${backendUrl}/api/attendance`,
+  {
+    date: selectedDate,
+    records: attendanceRecords[selectedDate],
+    mode: 'manual'
+  },
+  {
+    headers: {
+      Authorization: `Bearer ${localStorage.getItem("token")}`
+    }
+  }
+);
 
       alert("Attendance saved!");
     } catch (err) {

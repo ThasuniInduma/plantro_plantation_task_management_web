@@ -1,0 +1,137 @@
+.inc-layout {
+  display: flex;
+}
+
+.inc-main {
+  flex: 1;
+  padding: 20px;
+  background: #f4f6f3;
+  margin-left: 280px;
+  width: calc(100% -250px);  
+}
+
+/* HEADER */
+.inc-header {
+  margin-bottom: 20px;
+}
+
+.inc-title {
+  font-size: 26px;
+  font-weight: 700;
+}
+
+.inc-sub {
+  color: #64748b;
+}
+
+/* GRID */
+.inc-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+}
+
+/* CARD */
+.inc-card {
+  display: flex;
+  background: #fff;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+  transition: 0.2s;
+}
+
+.inc-card:hover {
+  transform: translateY(-3px);
+}
+
+.inc-strip {
+  width: 6px;
+}
+
+/* CONTENT */
+.inc-content {
+  padding: 14px;
+  flex: 1;
+}
+
+/* TOP */
+.inc-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.inc-title-text {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+/* BADGE */
+.inc-badge {
+  font-size: 11px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  text-transform: capitalize;
+}
+
+/* DESCRIPTION */
+.inc-desc {
+  font-size: 13px;
+  color: #475569;
+  margin: 8px 0;
+}
+
+/* INFO */
+.inc-info {
+  display: flex;
+  flex-direction: column;
+  font-size: 12px;
+  color: #64748b;
+  gap: 4px;
+}
+
+/* BOTTOM */
+.inc-bottom {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 10px;
+}
+
+/* STATUS */
+.inc-status {
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+
+.inc-status.pending { background: #fef3c7; }
+.inc-status.under_review { background: #dbeafe; }
+.inc-status.resolved { background: #dcfce7; }
+
+.inc-type {
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+/* EMPTY STATE */
+.inc-empty-box {
+  background: white;
+  padding: 50px;
+  text-align: center;
+  border-radius: 14px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+  color: #64748b;
+}
+
+.inc-empty-box h3 {
+  margin-top: 10px;
+  color: #334155;
+}
+
+/* LOADING */
+.inc-loading {
+  padding: 40px;
+  text-align: center;
+  color: #64748b;
+}

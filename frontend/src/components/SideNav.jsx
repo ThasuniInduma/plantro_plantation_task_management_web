@@ -18,13 +18,27 @@ const SideNav = ({ activeTab, setActiveTab }) => {
   const [collapsed, setCollapsed] = useState(false);
 
   const role = useMemo(() => {
-    if (!userData) return null;
-    const roleId = Number(userData.role_id);
-    if (roleId === 1) return 'admin';
-    if (roleId === 2) return 'supervisor';
-    if (roleId === 3) return 'worker';
-    return 'worker';
-  }, [userData]);
+  if (!userData) return null;
+
+  // Prefer role_id (number), fallback to role_name (string)
+  const roleId = Number(userData.role_id);
+  if (roleId === 1) return 'admin';
+  if (roleId === 2) return 'supervisor';
+  if (roleId === 3) return 'worker';
+
+  // Fallback: derive from role_name string
+  const roleName = (userData.role_name || '').toLowerCase();
+  if (roleName === 'admin' || roleName === 'owner') return 'admin';
+  if (roleName === 'supervisor') return 'supervisor';
+  if (roleName === 'worker') return 'worker';
+
+  return 'worker';
+}, [userData]);
+
+console.log("userData:", userData);
+console.log("role_id:", userData?.role_id);
+console.log("role_name:", userData?.role_name);
+console.log("computed role:", role);
 
   const displayName = userData?.full_name || 'User';
 
@@ -38,12 +52,16 @@ const SideNav = ({ activeTab, setActiveTab }) => {
   const avatarLetter = displayName.charAt(0).toUpperCase();
 
   const handleLogout = async () => {
-    try { await axios.post(`${backendUrl}/api/auth/logout`); }
-    catch (err) { console.error(err); }
-    setIsLoggedIn(false);
-    setUserData(null);
-    navigate('/login');
-  };
+  try { await axios.post(`${backendUrl}/api/auth/logout`); }
+  catch (err) { console.error(err); }
+  
+  // Clear everything
+  localStorage.removeItem("token");
+  localStorage.removeItem("user");
+  setIsLoggedIn(false);
+  setUserData(null);
+  navigate('/login');
+};
 
   const handleNavigation = (tab, path) => {
     if (setActiveTab) setActiveTab(tab);
@@ -82,7 +100,7 @@ const SideNav = ({ activeTab, setActiveTab }) => {
         { title: 'Management', items: [
           { id: 'attendance', label: 'Attendance',   icon: <FiCalendar />,    path: '/attendance' },
           { id: 'tasks',      label: 'Assign Tasks', icon: <FiCheckSquare />, path: '/tasks' },
-          { id: 'report',      label: 'Report Management', icon: <FiBarChart2 />, path: '/report' },
+          { id: 'report',      label: 'Report Incidents', icon: <FiBarChart2 />, path: '/incidents' },
         ]},
       ],
       profilePath: '/supervisor-profile',

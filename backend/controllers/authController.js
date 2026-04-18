@@ -172,7 +172,10 @@ return res.status(200).json({
 export const getUser = async (req, res) => {
   try {
     const [rows] = await db.query(
-      "SELECT * FROM users WHERE user_id=?",
+      `SELECT u.*, r.role_name 
+       FROM users u 
+       JOIN roles r ON u.role_id = r.role_id
+       WHERE u.user_id = ?`,
       [req.user.id]
     );
 
@@ -181,14 +184,12 @@ export const getUser = async (req, res) => {
     }
 
     const { password, ...safeUser } = rows[0];
-    res.json({ success: true, user: safeUser });
-
+    res.json({ success: true, user: safeUser }); // now includes both role_id AND role_name
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, message: "Server error" });
   }
 };
-
 /* =========================
    SEND RESET OTP
    ========================= */

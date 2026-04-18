@@ -11,6 +11,12 @@ import './Tasks.css';
 const BASE = 'http://localhost:8081/api';
 
 const Tasks = () => {
+
+  const getToken = () => localStorage.getItem('token');
+const getHeaders = () => ({
+  'Content-Type': 'application/json',
+  'Authorization': `Bearer ${getToken()}`
+});
   const [currentDate,     setCurrentDate]     = useState(new Date());
   const [selectedDate,    setSelectedDate]     = useState(new Date());
   const [activeTab,       setActiveTab]        = useState('tasks');
@@ -41,7 +47,12 @@ const Tasks = () => {
     'Content-Type': 'application/json'
   };
 
-  const toDateStr  = (d) => d.toISOString().split('T')[0];
+  const toDateStr = (d) => {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+  };
   const toMonthStr = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
   const isToday    = (d) => toDateStr(d) === toDateStr(new Date());
 
@@ -61,9 +72,9 @@ const Tasks = () => {
         ? `${BASE}/schedule/today`
         : `${BASE}/assignments?date=${dateStr}`;
 
-      const res  = await fetch(url, { headers, credentials: 'include' });
+      const res  = await fetch(url, { headers: getHeaders(), credentials: 'include' });
       const data = await res.json();
-
+      console.log("API DATA:", data); 
       if (isToday(selectedDate)) {
         // Smart schedule format: fields with due_tasks
         const fields = Array.isArray(data) ? data : [];
@@ -104,7 +115,7 @@ const Tasks = () => {
     try {
       const res  = await fetch(
         `${BASE}/assignments/calendar?month=${toMonthStr(currentDate)}`,
-        { headers, credentials: 'include' }
+        { headers: getHeaders(), credentials: 'include' }
       );
       const data = await res.json();
       setCalendarDots(Array.isArray(data) ? data : []);
@@ -121,7 +132,7 @@ const Tasks = () => {
       const url = isToday(selectedDate)
         ? `${BASE}/schedule/workers-available?date=${toDateStr(selectedDate)}&field_id=${field.field_id}`
         : `${BASE}/assignments/workers?date=${toDateStr(selectedDate)}&field_id=${field.field_id}`;
-      const res  = await fetch(url, { headers, credentials: 'include' });
+      const res  = await fetch(url, { headers: getHeaders(), credentials: 'include' });
       const data = await res.json();
       setAvailWorkers(Array.isArray(data) ? data : []);
     } catch { setAvailWorkers([]); }
@@ -133,20 +144,25 @@ const handleConfirmAssign = async () => {
   if (selectedWorkers.length === 0) return;
 
   const taskHours = assignTarget.task.estimated_man_hours;
-
   const totalTaskHours = assignTarget.task.estimated_man_hours;
+  const hoursPerWorker = Math.max(1, Math.ceil(taskHours / selectedWorkers.length));
 
-const totalAvailableHours = selectedWorkers.reduce((sum, workerId) => {
-  const worker = availWorkers.find(w => w.user_id === workerId);
-  return sum + (worker?.hours_remaining || 0);
-}, 0);
+  const totalAvailableHours = selectedWorkers.reduce((sum, workerId) => {
+    const worker = availWorkers.find(w => w.user_id === workerId);
+    return sum + (worker?.hours_remaining || 0);
+  }, 0);
 
-if (totalAvailableHours < totalTaskHours) {
-  alert(
-    `Not enough workforce capacity. Need ${totalTaskHours}h but only ${totalAvailableHours}h available.`
-  );
-  return;
-}
+  if (totalAvailableHours < totalTaskHours) {
+    alert(
+      `Not enough workforce capacity. Need ${totalTaskHours}h but only ${totalAvailableHours}h available.`
+    );
+    return;
+  }
+
+  const invalidWorkers = selectedWorkers.filter(workerId => {
+    const worker = availWorkers.find(w => w.user_id === workerId);
+    return (worker?.hours_remaining || 0) <= 0;
+  });
 
   if (invalidWorkers.length > 0) {
     alert("One or more selected workers do not have enough available hours.");
@@ -160,7 +176,7 @@ if (totalAvailableHours < totalTaskHours) {
       if (isToday(selectedDate) && assignTarget.task.schedule_id) {
         return fetch(`${BASE}/schedule/assign`, {
           method: 'POST',
-          headers,
+          headers: getHeaders(),
           credentials: 'include',
           body: JSON.stringify({
             schedule_id: assignTarget.task.schedule_id,
@@ -171,19 +187,19 @@ if (totalAvailableHours < totalTaskHours) {
       } else {
         return fetch(`${BASE}/assignments`, {
           method: 'POST',
-          headers,
+          headers: getHeaders(),
           credentials: 'include',
           body: JSON.stringify({
             task_id: assignTarget.task.task_id,
             field_id: assignTarget.field.field_id,
             worker_user_id: Number(workerId),
             assigned_date: toDateStr(selectedDate),
-            expected_hours: assignTarget.task.estimated_man_hours
+            expected_hours: hoursPerWorker
           })
         });
       }
     });
-
+    
     const results = await Promise.all(promises);
 
     for (const res of results) {
@@ -207,7 +223,7 @@ if (totalAvailableHours < totalTaskHours) {
   const handleRemoveAssignment = async (assignmentId) => {
     if (!window.confirm('Remove this assignment?')) return;
     try {
-      await fetch(`${BASE}/assignments/${assignmentId}`, { method: 'DELETE', headers, credentials: 'include' });
+      await fetch(`${BASE}/assignments/${assignmentId}`, { method: 'DELETE', headers: getHeaders(), credentials: 'include' });
       await fetchScheduleForDate();
       await fetchCalendarDots();
     } catch { alert('Failed to remove.'); }
@@ -217,7 +233,7 @@ if (totalAvailableHours < totalTaskHours) {
   const handleUpdateStatus = async (assignmentId, status) => {
     try {
       await fetch(`${BASE}/assignments/${assignmentId}`, {
-        method: 'PUT', headers, credentials: 'include',
+        method: 'PUT', headers: getHeaders(), credentials: 'include',
         body: JSON.stringify({ status })
       });
       await fetchScheduleForDate();
@@ -229,7 +245,7 @@ if (totalAvailableHours < totalTaskHours) {
     if (!window.confirm('Postpone this task to tomorrow?')) return;
     try {
       await fetch(`${BASE}/schedule/dismiss`, {
-        method: 'POST', headers, credentials: 'include',
+        method: 'POST', headers: getHeaders(), credentials: 'include',
         body: JSON.stringify({ schedule_id: scheduleId })
       });
       await fetchScheduleForDate();
@@ -248,7 +264,7 @@ if (totalAvailableHours < totalTaskHours) {
     setVerifying(true);
     try {
       const res = await fetch(`${BASE}/schedule/verify`, {
-        method: 'POST', headers, credentials: 'include',
+        method: 'POST', headers: getHeaders(), credentials: 'include',
         body: JSON.stringify({
           schedule_id:   verifyTarget.task.schedule_id,
           assignment_id: verifyTarget.assignment.assignment_id,
@@ -378,9 +394,13 @@ if (totalAvailableHours < totalTaskHours) {
                   {calendarDaysList().map((day, i) => {
                     if (!day) return <div key={`e${i}`} className="calendar-day empty" />;
 
-                    const ds = new Date(
-                      currentDate.getFullYear(), currentDate.getMonth(), day
-                    ).toISOString().split('T')[0];
+                    const dsDate = new Date(
+                      currentDate.getFullYear(),
+                      currentDate.getMonth(),
+                      day
+                    );
+
+                    const ds = toDateStr(dsDate);
 
                     const isSelected = toDateStr(selectedDate) === ds;
                     const isTodayDay = toDateStr(new Date()) === ds;
@@ -527,8 +547,11 @@ if (totalAvailableHours < totalTaskHours) {
 
                       {/* Task rows */}
                       {expandedFields[field.field_id] && field.due_tasks.map(task => {
-                        const pendingVerify = task.assignments?.find(
-                          a => a.status === 'completed' && !a.verified_at
+                        const pendingVerify = task.assignments?.find(a =>
+                          (a.status || '').toLowerCase() === 'completed' &&
+                          !a.verified_at &&
+                          !a.verifiedAt &&
+                          !a.is_verified
                         );
                         const hoursLeft = Math.max(
                           0, task.estimated_man_hours - (task.total_hours_assigned || 0)
@@ -556,7 +579,7 @@ if (totalAvailableHours < totalTaskHours) {
                                   <h4 className="task-title">{task.task_name}</h4>
                                   {isToday(selectedDate) && (
                                     task.needs_verification ? (
-                                      <span className="verify-tag">⏳ Needs Verification</span>
+                                      <span className="verify-tag"> Needs Verification</span>
                                     ) : (
                                       <span
                                         className="prio-tag"
@@ -766,6 +789,9 @@ if (totalAvailableHours < totalTaskHours) {
 
                         const neededWorkers = Math.ceil(totalHours / capacity);
                         const perWorker = Math.min(totalHours, capacity);
+                        const hoursPerWorker = Math.ceil(
+  assignTarget.task.estimated_man_hours / selectedWorkers.length
+);
 
                         return (
                           <span className="workers-calc">

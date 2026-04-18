@@ -1,6 +1,14 @@
 import { db } from "../config/db.js";
 import { createNotification, sendTaskEmail } from "./notificationController.js";
 
+const getLocalDate = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 // ── GET /api/schedule/today
 export const getTodaySchedule = async (req, res) => {
   try {
@@ -9,7 +17,7 @@ export const getTodaySchedule = async (req, res) => {
     if (!supervisorUserId) {
       return res.status(401).json({ error: "Unauthorized" });
     }
-    const today = new Date().toISOString().split('T')[0];
+    const today = getLocalDate();
 
     const [fields] = await db.query(
       `SELECT 
@@ -63,10 +71,11 @@ export const getTodaySchedule = async (req, res) => {
               ta.completed_at, ta.verified_at,
               u.full_name AS worker_name
        FROM task_assignments ta
-       JOIN users u ON ta.worker_id = u.user_id
+       JOIN workers w ON ta.worker_id = w.worker_id
+       JOIN users u ON w.user_id = u.user_id
        WHERE ta.field_id IN (?)
          AND (
-           ta.assigned_date = ?
+           DATE(ta.assigned_date) = ?
            OR ta.status IN ('completed', 'in_progress')
          )
          AND ta.status != 'rejected'`,
@@ -173,8 +182,7 @@ export const assignWorkerToScheduledTask = async (req, res) => {
       deadline_time
     } = req.body;
 
-    const assignDate =
-      date || new Date().toISOString().split("T")[0];
+    const assignDate = date || getLocalDate();
 
     // ── STEP 1: get schedule (YOUR DB)
     const [schedRows] = await db.query(
@@ -256,6 +264,41 @@ export const assignWorkerToScheduledTask = async (req, res) => {
       ]
     );
 
+    // Get worker info
+const [workerInfo] = await db.query(
+  `SELECT u.user_id, u.full_name, u.email
+   FROM users u
+   WHERE u.user_id = ?`,
+  [worker_user_id]
+);
+
+if (workerInfo.length) {
+  const worker = workerInfo[0];
+
+  await createNotification(
+    worker.user_id,
+    "📅 Scheduled Task Assigned",
+    `You have been assigned "${sched.task_name}" on ${assignDate}.`,
+    "task_assigned",
+    result.insertId
+  );
+
+  await sendTaskEmail(
+    worker.email,
+    worker.full_name,
+    "New Scheduled Task Assigned",
+    `
+      <p>Hello ${worker.full_name},</p>
+      <p>You have a new scheduled task:</p>
+      <ul>
+        <li><strong>Task:</strong> ${sched.task_name}</li>
+        <li><strong>Date:</strong> ${assignDate}</li>
+        <li><strong>Hours:</strong> ${hoursToAssign}</li>
+      </ul>
+    `
+  );
+}
+
     // ── STEP 6: return response
     return res.status(201).json({
       assignment_id: result.insertId,
@@ -279,7 +322,7 @@ export const workerMarkComplete = async (req, res) => {
   try {
     await conn.beginTransaction();
     const { assignment_id } = req.body;
-    const today = new Date().toISOString().split('T')[0];
+    const today = getLocalDate();
 
     await conn.query(
       `UPDATE task_assignments
@@ -320,23 +363,30 @@ export const workerMarkComplete = async (req, res) => {
 // ── POST /api/schedule/verify — supervisor approves or rejects
 export const supervisorVerify = async (req, res) => {
   const conn = await db.getConnection();
+
   try {
     await conn.beginTransaction();
+
     const supervisorUserId =
-  req.user?.id ?? Number(req.body.assigned_by);
+      req.user?.id ?? Number(req.body.assigned_by);
 
-if (!supervisorUserId) {
-  return res.status(401).json({ error: "Supervisor required" });
-}
-    const { schedule_id, assignment_id, action, reject_reason } = req.body;
-    const today = new Date().toISOString().split('T')[0];
-
-    if (!schedule_id || !assignment_id || !action) {
-      return res.status(400).json({ error: "schedule_id, assignment_id, action required" });
+    if (!supervisorUserId) {
+      return res.status(401).json({ error: "Supervisor required" });
     }
 
-    if (action === 'approve') {
-      // Mark assignment verified
+    const { schedule_id, assignment_id, action, reject_reason } = req.body;
+
+    if (!schedule_id || !assignment_id || !action) {
+      return res.status(400).json({
+        error: "schedule_id, assignment_id, action required"
+      });
+    }
+
+    // ─────────────────────────────────────
+    // APPROVE FLOW
+    // ─────────────────────────────────────
+    if (action === "approve") {
+
       await conn.query(
         `UPDATE task_assignments
          SET verified_by = ?,
@@ -346,7 +396,6 @@ if (!supervisorUserId) {
         [supervisorUserId, assignment_id]
       );
 
-      // Get frequency for next due date
       const [schedRows] = await conn.query(
         `SELECT fts.*, ct.frequency_days
          FROM field_task_schedule fts
@@ -354,101 +403,129 @@ if (!supervisorUserId) {
          WHERE fts.schedule_id = ?`,
         [schedule_id]
       );
+
       if (!schedRows.length) throw new Error("Schedule not found");
 
-      const sched   = schedRows[0];
-      const nextDue = new Date(today);
-      nextDue.setDate(nextDue.getDate() + sched.frequency_days);
-      const nextDueStr = nextDue.toISOString().split('T')[0];
+      const sched = schedRows[0];
 
-      // Reset schedule — task done, next cycle starts
+      const today = new Date();
+const todayStr = getLocalDate();
+
+const nextDue = new Date();
+nextDue.setDate(nextDue.getDate() + sched.frequency_days);
+
+const nextDueStr = `${nextDue.getFullYear()}-${String(nextDue.getMonth()+1).padStart(2,'0')}-${String(nextDue.getDate()).padStart(2,'0')}`;
+
       await conn.query(
         `UPDATE field_task_schedule
-         SET last_done_date        = ?,
-             next_due_date         = ?,
-             pending_verification  = 0,
+         SET last_done_date = ?,
+             next_due_date = ?,
+             pending_verification = 0,
              pending_assignment_id = NULL,
-             is_dismissed          = 0
+             is_dismissed = 0
          WHERE schedule_id = ?`,
-        [today, nextDueStr, schedule_id]
+        [todayStr, nextDueStr, schedule_id]
       );
+
+      // ── Get worker info for notification
+      const [assignInfo] = await conn.query(
+        `SELECT ta.worker_id, u.full_name, u.email,
+                t.task_name, f.field_name
+         FROM task_assignments ta
+         JOIN workers w ON ta.worker_id = w.worker_id
+JOIN users u ON w.user_id = u.user_id
+         JOIN tasks t ON ta.task_id = t.task_id
+         JOIN fields f ON ta.field_id = f.field_id
+         WHERE ta.assignment_id = ?`,
+        [assignment_id]
+      );
+
+      if (assignInfo.length) {
+        const w = assignInfo[0];
+
+        await createNotification(
+          w.worker_id,
+          `✅ Task Approved: ${w.task_name}`,
+          `Your task "${w.task_name}" at ${w.field_name} has been approved.`,
+          "task_verified",
+          assignment_id
+        );
+
+        await sendTaskEmail(
+          w.email,
+          w.full_name,
+          `[Plantro] Task Approved`,
+          `<p>Your task <b>${w.task_name}</b> at <b>${w.field_name}</b> was approved. Good job!</p>`
+        );
+      }
 
       await conn.commit();
-      res.json({
-        message:        "Task approved",
-        next_due_date:  nextDueStr,
-        last_done_date: today
-      });
 
-    } else if (action === 'reject') {
-      // Mark assignment rejected
+      return res.json({
+        message: "Task approved",
+        next_due_date: nextDueStr,
+        last_done_date: todayStr
+      });
+    }
+
+    // ─────────────────────────────────────
+    // REJECT FLOW
+    // ─────────────────────────────────────
+    if (action === "reject") {
+
       await conn.query(
         `UPDATE task_assignments
-         SET status  = 'rejected',
+         SET status = 'rejected',
              remarks = ?
          WHERE assignment_id = ?`,
-        [reject_reason || 'Rejected by supervisor', assignment_id]
+        [reject_reason || "Rejected by supervisor", assignment_id]
       );
 
-      // Clear pending verification — task re-appears as unassigned
       await conn.query(
         `UPDATE field_task_schedule
-         SET pending_verification  = 0,
+         SET pending_verification = 0,
              pending_assignment_id = NULL
          WHERE schedule_id = ?`,
         [schedule_id]
       );
 
+      const [assignInfo] = await conn.query(
+        `SELECT ta.worker_id, u.full_name, u.email,
+                t.task_name
+         FROM task_assignments ta
+         JOIN workers w ON ta.worker_id = w.worker_id
+JOIN users u ON w.user_id = u.user_id
+         JOIN tasks t ON ta.task_id = t.task_id
+         WHERE ta.assignment_id = ?`,
+        [assignment_id]
+      );
+
+      if (assignInfo.length) {
+        const w = assignInfo[0];
+
+        await createNotification(
+          w.worker_id,
+          `❌ Task Rejected`,
+          `Task "${w.task_name}" was rejected. Reason: ${reject_reason || "No reason provided"}`,
+          "task_rejected",
+          assignment_id
+        );
+      }
+
       await conn.commit();
-      res.json({ message: "Task rejected — worker needs to redo" });
-      const [assignInfo] = await conn.query(
-        `SELECT ta.worker_id, u.full_name AS worker_name, u.email,
-                t.task_name, f.field_name
-        FROM task_assignments ta
-        JOIN users u ON ta.worker_id = u.user_id
-        JOIN tasks t ON ta.task_id = t.task_id
-        JOIN fields f ON ta.field_id = f.field_id
-        WHERE ta.assignment_id = ?`,
-        [assignment_id]
-      );
-      if (assignInfo.length) {
-        const w = assignInfo[0];
-        await createNotification(
-          w.worker_id,
-          `❌ Task Rejected: ${w.task_name}`,
-          `Your completion of "${w.task_name}" was rejected. Reason: ${reject_reason || 'See supervisor'}. Please redo the task.`,
-          'task_rejected',
-          assignment_id
-        );
-      }
-    } else {
-      return res.status(400).json({ error: "action must be 'approve' or 'reject'" });
-      // Notify worker of approval
-      const [assignInfo] = await conn.query(
-        `SELECT ta.worker_id, u.full_name AS worker_name, u.email,
-                t.task_name, f.field_name
-        FROM task_assignments ta
-        JOIN users u ON ta.worker_id = u.user_id
-        JOIN tasks t ON ta.task_id = t.task_id
-        JOIN fields f ON ta.field_id = f.field_id
-        WHERE ta.assignment_id = ?`,
-        [assignment_id]
-      );
-      if (assignInfo.length) {
-        const w = assignInfo[0];
-        await createNotification(
-          w.worker_id,
-          `✅ Task Approved: ${w.task_name}`,
-          `Your completion of "${w.task_name}" at ${w.field_name} has been approved. Next due in ${sched.frequency_days} days.`,
-          'task_verified',
-          assignment_id
-        );
-        await sendTaskEmail(w.email, w.worker_name,
-          `[Plantro] Task Approved: ${w.task_name}`,
-          `<p>Hi ${w.worker_name}, your task <strong>${w.task_name}</strong> at <strong>${w.field_name}</strong> has been <span style="color:#10b981;font-weight:700">approved</span> by your supervisor. Well done!</p>`
-        );
-      }
+
+      return res.json({
+        message: "Task rejected — worker must redo"
+      });
     }
+
+    // ─────────────────────────────────────
+    // INVALID ACTION
+    // ─────────────────────────────────────
+    return res.status(400).json({
+      error: "action must be 'approve' or 'reject'"
+    });
+
   } catch (err) {
     await conn.rollback();
     console.error("supervisorVerify:", err);
@@ -463,9 +540,9 @@ export const dismissTask = async (req, res) => {
   try {
     const { schedule_id, new_due_date } = req.body;
     const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const newDate = new_due_date || tomorrow.toISOString().split('T')[0];
+tomorrow.setDate(tomorrow.getDate() + 1);
 
+const newDate = new_due_date || `${tomorrow.getFullYear()}-${String(tomorrow.getMonth()+1).padStart(2,'0')}-${String(tomorrow.getDate()).padStart(2,'0')}`;
     await db.query(
       `UPDATE field_task_schedule
        SET is_dismissed   = 1,
@@ -488,8 +565,7 @@ export const dismissTask = async (req, res) => {
 export const getWorkersForSchedule = async (req, res) => {
   try {
     const { date, field_id, task_id } = req.query;
-    const queryDate =
-      date || new Date().toISOString().split("T")[0];
+    const queryDate = date || getLocalDate();
 
     const safeParse = (d) => {
       if (!d) return [];
@@ -591,7 +667,7 @@ export const getWorkersForSchedule = async (req, res) => {
 export const getWorkerTasks = async (req, res) => {
   try {
     const workerUserId = req.user?.id || Number(req.query.user_id);
-    const today = new Date().toISOString().split("T")[0];
+    const today = getLocalDate();
 
     const [rows] = await db.query(
       `SELECT ta.assignment_id, ta.task_id, ta.field_id,

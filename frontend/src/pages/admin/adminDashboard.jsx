@@ -10,15 +10,21 @@ import './adminDashboard.css';
 const API_BASE = 'http://localhost:8081/api/admin/dashboard';
 
 /* ─── API helper ──────────────────────────────────────── */
+// Replace the apiFetch helper at the top
 const apiFetch = async (url, options = {}) => {
-    const res = await fetch(url, {
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json', ...options.headers },
-        ...options,
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.message || `Request failed (${res.status})`);
-    return data;
+  const token = localStorage.getItem('token');
+  const res = await fetch(url, {
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,   // ← add this
+      ...options.headers,
+    },
+    ...options,
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || `Request failed (${res.status})`);
+  return data;
 };
 
 /* ─── Skeleton loader ─────────────────────────────────── */
@@ -208,7 +214,7 @@ const AdminDashboard = () => {
     const FieldDetailsView = ({ field }) => (
         <div className="field-detail-container">
             <button className="back-btn" onClick={() => setSelectedField(null)}>
-                ← Back to Overview
+                 Back to Overview
             </button>
 
             {field._loading ? (
@@ -228,7 +234,7 @@ const AdminDashboard = () => {
                             <p className="field-id">Field ID: {field.id ?? field.field_id}</p>
                             {field.location && (
                                 <p className="field-id" style={{ marginTop: '0.25rem' }}>
-                                    📍 {field.location}
+                                     {field.location}
                                 </p>
                             )}
                         </div>
