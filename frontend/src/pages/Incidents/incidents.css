@@ -27,8 +27,8 @@
 /* GRID */
 .inc-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); /* bigger cards */
+  gap: 30px;
 }
 
 /* CARD */
@@ -134,4 +134,46 @@
   padding: 40px;
   text-align: center;
   color: #64748b;
+}
+.inc-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 10px;
+}
+
+.inc-buttons {
+  display: flex;
+  gap: 2px;
+}
+
+.inc-buttons button {
+  border: none;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.btn-progress {
+  background: #f59e0b22;
+  color: #f59e0b;
+}
+
+.btn-resolve {
+  background: #10b98122;
+  color: #10b981;
+}
+
+.btn-reset {
+  background: #ef444422;
+  color: #ef4444;
+}
+
+.inc-buttons button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }

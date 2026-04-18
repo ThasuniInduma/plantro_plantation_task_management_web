@@ -307,4 +307,89 @@ router.get("/fields-list", authenticate, authorize("OWNER", "SUPERVISOR"), async
   }
 });
 
+router.get(
+  "/incident-reports",
+  authenticate,
+  authorize("OWNER", "SUPERVISOR"),
+  async (req, res) => {
+    try {
+      let where = "";
+      const params = [];
+
+      // supervisor restriction
+      if (req.user.role_name === "supervisor") {
+        where = `WHERE ir.field_id IN (
+          SELECT field_id FROM supervisors WHERE user_id = ?
+        )`;
+        params.push(req.user.id);
+      }
+
+      const [rows] = await db.query(
+        `
+        SELECT
+          ir.report_id,
+          ir.title,
+          ir.description,
+          ir.incident_type,
+          ir.severity,
+          ir.status,
+          ir.created_at AS reported_at,
+
+          COALESCE(f.field_name, 'Unknown Field') AS field_name,
+          COALESCE(u.full_name, 'Unknown User') AS reported_by
+
+        FROM incident_reports ir
+        LEFT JOIN fields f ON f.field_id = ir.field_id
+        LEFT JOIN users u ON u.user_id = ir.reporter_id
+
+        ${where}
+        ORDER BY ir.created_at DESC
+        `,
+        params
+      );
+
+      return res.json({
+        success: true,
+        reports: rows || []
+      });
+
+    } catch (err) {
+      console.error("Incident Reports Error:", err);
+      return res.status(500).json({
+        success: false,
+        message: err.message
+      });
+    }
+  }
+);
+router.get(
+  "/harvesting-reports",
+  authenticate,
+  authorize("OWNER", "SUPERVISOR"),
+  async (req, res) => {
+    try {
+      const [rows] = await db.query(`
+        SELECT
+          hr.harvest_id,
+          hr.field_id,
+          f.field_name,
+          c.crop_name,
+          hr.harvest_date,
+          hr.quantity,
+          hr.unit,
+          u.full_name AS supervisor_name
+        FROM harvest_reports hr
+        JOIN fields f ON f.field_id = hr.field_id
+        JOIN crops c ON c.crop_id = hr.crop_id
+        LEFT JOIN users u ON u.user_id = hr.supervisor_id
+        ORDER BY hr.harvest_date DESC
+      `);
+
+      res.json({ success: true, reports: rows });
+    } catch (err) {
+      res.status(500).json({ success: false, message: err.message });
+    }
+  }
+);
+
 export default router;

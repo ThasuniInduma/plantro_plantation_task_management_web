@@ -214,9 +214,12 @@ const ReportManagement = () => {
       if (startDate) params.append('start_date', startDate);
       if (endDate)   params.append('end_date', endDate);
 
-      const endpoint = reportType === 'task-completion'    ? 'task-completion'
-                     : reportType === 'worker-performance' ? 'worker-performance'
-                     : 'field-status';
+      const endpoint =
+  reportType === 'task-completion'    ? 'task-completion'
+  : reportType === 'worker-performance' ? 'worker-performance'
+  : reportType === 'field-status' ? 'field-status'
+  : reportType === 'harvesting-reports' ? 'harvesting-reports'
+  : 'incident-reports';
 
       const res = await fetch(`${API}/api/reports/${endpoint}?${params}`, { headers: authHeaders() });
       const data = await res.json();
@@ -285,6 +288,8 @@ const ReportManagement = () => {
               { id: 'task-completion',    icon: <FiCheckCircle size={16}/>, label: 'Task Completion' },
               { id: 'worker-performance', icon: <FiUser size={16}/>,        label: 'Worker Performance' },
               { id: 'field-status',       icon: <FiMapPin size={16}/>,      label: 'Field Status' },
+                { id: 'harvesting-reports', icon: <FiTrendingUp size={16}/>, label: 'Harvesting Reports' },
+  { id: 'incident-reports', icon: <FiAlertCircle size={16}/>, label: 'Incident Reports' },
             ].map(tab => (
               <button
                 key={tab.id}
@@ -618,6 +623,92 @@ const ReportManagement = () => {
                   ))}
                 </div>
               )}
+              {reportType === 'harvesting-reports' && (
+  <table className="rm-table">
+    <thead>
+      <tr>
+        <th>Field</th>
+        <th>Crop</th>
+        <th>Harvest Date</th>
+        <th>Quantity</th>
+        <th>Unit</th>
+        <th>Workers</th>
+        <th>Supervisor</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+
+    <tbody>
+      {reports.map((r, i) => (
+        <tr key={i}>
+          <td><strong>{r.field_name}</strong></td>
+          <td><span className="rm-badge crop">{r.crop_name}</span></td>
+          <td>{r.harvest_date ? new Date(r.harvest_date).toLocaleDateString() : '—'}</td>
+          <td><b>{r.quantity}</b></td>
+          <td>{r.unit}</td>
+          <td>{r.worker_count}</td>
+          <td>{r.supervisor_name || '-'}</td>
+          <td>
+            <div className="rm-row-actions">
+              <button className="rm-icon-btn view" onClick={() => setSelected(r)}>
+                <FiEye size={14}/>
+              </button>
+              <button className="rm-icon-btn pdf" onClick={() => handleExportPDF([r])}>
+                <FiDownload size={14}/>
+              </button>
+            </div>
+          </td>
+        </tr>
+      ))}
+    </tbody>
+  </table>
+)}
+{reportType === 'incident-reports' && (
+  <table className="rm-table">
+    <thead>
+      <tr>
+        <th>Type</th>
+        <th>Severity</th>
+        <th>Field</th>
+        <th>Reported By</th>
+        <th>Date</th>
+        <th>Status</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+
+    <tbody>
+      {reports.map((r, i) => (
+        <tr key={i}>
+          <td><strong>{r.incident_type}</strong></td>
+          <td>
+            <span className={`rm-badge ${r.severity?.toLowerCase()}`}>
+              {r.severity}
+            </span>
+          </td>
+          <td>{r.field_name || '-'}</td>
+          <td>{r.reported_by}</td>
+          <td>{r.reported_at ? new Date(r.reported_at).toLocaleDateString() : '—'}</td>
+          <td>
+            <span className={`rm-badge ${r.status === 'resolved' ? 'done' : 'partial'}`}>
+              {r.status}
+            </span>
+          </td>
+          <td>
+            <div className="rm-row-actions">
+              <button className="rm-icon-btn view" onClick={() => setSelected(r)}>
+                <FiEye size={14}/>
+              </button>
+              <button className="rm-icon-btn pdf" onClick={() => handleExportPDF([r])}>
+                <FiDownload size={14}/>
+              </button>
+            </div>
+          </td>
+        </tr>
+      ))}
+    </tbody>
+  </table>
+)}
             </div>
             <div className="rm-modal-footer">
               <button className="rm-btn rm-btn-outline" onClick={() => setSelected(null)}>Close</button>
@@ -628,6 +719,8 @@ const ReportManagement = () => {
           </div>
         </div>
       )}
+
+      
     </div>
   );
 };

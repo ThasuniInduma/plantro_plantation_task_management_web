@@ -50,6 +50,23 @@ export default function Incidents() {
       default: return "#10b981";
     }
   };
+  const updateStatus = async (id, status) => {
+  try {
+    await fetch(`${BASE}/incidents/${id}/status`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${getToken()}`
+      },
+      body: JSON.stringify({ status })
+    });
+
+    // refresh list
+    fetchIncidents();
+  } catch (err) {
+    console.error(err);
+  }
+};
 
   return (
   <div className="inc-layout">
@@ -108,12 +125,37 @@ export default function Incidents() {
                   <div><FiClock /> {new Date(i.created_at).toLocaleString()}</div>
                 </div>
 
-                <div className="inc-bottom">
-                  <span className={`inc-status ${i.status}`}>
-                    {i.status}
-                  </span>
-                  <span className="inc-type">{i.incident_type}</span>
-                </div>
+                <div className="inc-actions">
+  <span className={`inc-status ${i.status}`}>
+    {i.status}
+  </span>
+
+  <div className="inc-buttons">
+    <button
+      className="btn-progress"
+      onClick={() => updateStatus(i.report_id, "in_progress")}
+      disabled={i.status === "in_progress"}
+    >
+      <FiClock /> In Progress
+    </button>
+
+    <button
+      className="btn-resolve"
+      onClick={() => updateStatus(i.report_id, "resolved")}
+      disabled={i.status === "resolved"}
+    >
+      <FiCheckCircle /> Resolve
+    </button>
+
+    <button
+      className="btn-reset"
+      onClick={() => updateStatus(i.report_id, "pending")}
+      disabled={i.status === "pending"}
+    >
+    <FiXCircle /> Reset
+    </button>
+  </div>
+</div>
 
               </div>
             </div>

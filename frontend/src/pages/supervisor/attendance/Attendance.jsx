@@ -87,44 +87,64 @@ const Attendance = () => {
 
   // ---------------- MARK ATTENDANCE ----------------
   const markAttendance = (workerId, status) => {
-    if (!canMark) return;
+  if (!canMark) return;
 
-    setAttendanceRecords(prev => ({
+  setAttendanceRecords(prev => {
+    const existing = prev[selectedDate]?.[workerId] || {};
+
+    return {
       ...prev,
       [selectedDate]: {
         ...prev[selectedDate],
         [workerId]: {
           status,
+
+          // ✅ only set check-in once
           checkInTime:
-            status === 'present'
-              ? new Date().toTimeString().slice(0, 8)
-              : prev[selectedDate]?.[workerId]?.checkInTime || null
+            (status === 'present' || status === 'late')
+              ? existing.checkInTime || new Date().toTimeString().slice(0, 8)
+              : null,
+
+          // ✅ NEVER remove checkout accidentally
+          checkOutTime: existing.checkOutTime || null
         }
       }
-    }));
-  };
+    };
+  });
+};
 
   // ---------------- MARK ALL PRESENT ----------------
   const markAllPresent = () => {
-    if (!canMark) return;
+  if (!canMark) return;
 
+  setAttendanceRecords(prev => {
+    const existingDay = prev[selectedDate] || {};
     const updated = {};
 
     filteredWorkers.forEach(w => {
+      const existing = existingDay[w.worker_id] || {};
+
       updated[w.worker_id] = {
         status: 'present',
-        checkInTime: new Date().toTimeString().slice(0, 8)
+
+        // ✅ keep existing check-in
+        checkInTime:
+          existing.checkInTime || new Date().toTimeString().slice(0, 8),
+
+        // ✅ KEEP checkout (THIS WAS MISSING)
+        checkOutTime: existing.checkOutTime || null
       };
     });
 
-    setAttendanceRecords(prev => ({
+    return {
       ...prev,
       [selectedDate]: {
-        ...prev[selectedDate],
+        ...existingDay,
         ...updated
       }
-    }));
-  };
+    };
+  });
+};
 
   // ---------------- RESET ----------------
   const resetDay = () => {
@@ -135,7 +155,8 @@ const Attendance = () => {
     workers.forEach(w => {
       reset[w.worker_id] = {
         status: 'pending',
-        checkInTime: null
+        checkInTime: null,
+        checkOutTime: null
       };
     });
 
@@ -146,42 +167,69 @@ const Attendance = () => {
   };
 
   // ---------------- SAVE ----------------
-  const saveAttendance = async () => {
-    try {
-      await axios.post(
-  `${backendUrl}/api/attendance`,
-  {
-    date: selectedDate,
-    records: attendanceRecords[selectedDate],
-    mode: 'manual'
-  },
-  {
-    headers: {
-      Authorization: `Bearer ${localStorage.getItem("token")}`
-    }
-  }
-);
+const saveAttendance = async () => {
+  try {
 
-      alert("Attendance saved!");
-    } catch (err) {
-      console.error(err);
-    }
-  };
+    const cleanedRecords = Object.fromEntries(
+      Object.entries(attendanceRecords[selectedDate] || {}).map(([id, r]) => [
+        id,
+        {
+          status: r.status || 'pending',
+          checkInTime: r.checkInTime || null,
+          checkOutTime: r.checkOutTime || null
+        }
+      ])
+    );
+
+    console.log("📦 Sending:", cleanedRecords); // DEBUG
+
+    await axios.post(
+      `${backendUrl}/api/attendance`,
+      {
+        date: selectedDate,
+        records: cleanedRecords,
+        mode: 'manual'
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`
+        }
+      }
+    );
+
+    alert("Attendance saved!");
+  } catch (err) {
+    console.error(err);
+  }
+};
 
   const markCheckout = (workerId) => {
-    if (!canMark) return;
+  if (!canMark) return;
 
-    setAttendanceRecords(prev => ({
+  setAttendanceRecords(prev => {
+    const existing = prev[selectedDate]?.[workerId];
+
+    // ❌ must be present/late
+    if (!existing || !['present', 'late'].includes(existing.status)) {
+      alert("Worker must be present or late first");
+      return prev;
+    }
+
+    // ❌ prevent duplicate checkout
+    if (existing.checkOutTime) return prev;
+
+    return {
       ...prev,
       [selectedDate]: {
         ...prev[selectedDate],
         [workerId]: {
-          ...prev[selectedDate]?.[workerId],
+          ...existing,
           checkOutTime: new Date().toTimeString().slice(0, 8)
         }
       }
-    }));
-  };
+    };
+  });
+};
 
   // ---------------- STATS ----------------
   const stats = {

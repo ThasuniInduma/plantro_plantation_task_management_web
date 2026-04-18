@@ -375,10 +375,7 @@ const AdminDashboard = () => {
             <div className="fields-section">
                 <div className="section-header-row">
                     <h2 className="section-title" style={{ marginBottom: 0 }}>Field Activity Summary</h2>
-                    <button className="refresh-btn" onClick={fetchFields} disabled={loadingFields}>
-                        <FiRefreshCw className={loadingFields ? 'spin' : ''} />
-                        {loadingFields ? 'Loading…' : 'Refresh'}
-                    </button>
+                    
                 </div>
 
                 <div className="fields-grid" style={{ marginTop: '1.5rem' }}>
@@ -397,7 +394,7 @@ const AdminDashboard = () => {
                             <FiMap style={{ fontSize: '2.5rem', color: '#cbd5e1' }} />
                             <p>No fields found.{' '}
                                 <span onClick={() => navigate('/field')} className="link-action">
-                                    Add a field →
+                                    Add a field 
                                 </span>
                             </p>
                         </div>
@@ -406,10 +403,7 @@ const AdminDashboard = () => {
                             <div
                                 key={field.field_id}
                                 className={`field-card ${field.status}`}
-                                onClick={() => handleFieldClick(field)}
-                                role="button"
-                                tabIndex={0}
-                                onKeyDown={e => e.key === 'Enter' && handleFieldClick(field)}
+                                
                             >
                                 <div className="field-card-header">
                                     <h3>{field.name}</h3>
@@ -448,7 +442,7 @@ const AdminDashboard = () => {
                                     />
                                 </div>
                                 <div className="completion-text">{field.completionRate ?? 0}% Complete</div>
-                                <div className="view-details">View Details →</div>
+                                
                             </div>
                         ))
                     )}

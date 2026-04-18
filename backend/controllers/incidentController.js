@@ -142,3 +142,41 @@ export const getSupervisorIncidents = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+export const updateIncidentStatus = async (req, res) => {
+  try {
+    const supervisorId = req.user?.id;
+    const { id } = req.params;
+    const { status } = req.body;
+
+    const allowedStatus = ["pending", "in_progress", "resolved"];
+
+    if (!allowedStatus.includes(status)) {
+      return res.status(400).json({ message: "Invalid status" });
+    }
+
+    // ensure supervisor owns this incident
+    const [incident] = await db.query(
+      "SELECT supervisor_id FROM incident_reports WHERE report_id = ?",
+      [id]
+    );
+
+    if (!incident.length) {
+      return res.status(404).json({ message: "Incident not found" });
+    }
+
+    if (incident[0].supervisor_id !== supervisorId) {
+      return res.status(403).json({ message: "Not allowed" });
+    }
+
+    await db.query(
+      "UPDATE incident_reports SET status = ? WHERE report_id = ?",
+      [status, id]
+    );
+
+    res.json({ success: true });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: err.message });
+  }
+};
