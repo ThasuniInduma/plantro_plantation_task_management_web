@@ -57,7 +57,7 @@ function App() {
 
         <Route path='/worker/setup' element={
           <ProtectedRoute allowedRoles={["worker"]}>
-            <DashboardLayout><WorkerSetup /></DashboardLayout>
+            <WorkerSetup />
           </ProtectedRoute>
         } />
 

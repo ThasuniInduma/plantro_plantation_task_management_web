@@ -184,62 +184,114 @@ const WorkforceManagement = ({ logo }) => {
         setShowAddModal(true);
     };
 
+    const validateWorkerForm = () => {
+  const { name, email, phone, password, role, location, specialty, manHoursPerDay, field_id } = form;
+
+  // ── Name: letters and spaces only ──────────────────────
+  if (!name.trim()) {
+    showToast('Full name is required.', 'error'); return false;
+  }
+  if (!/^[a-zA-Z\s]+$/.test(name.trim())) {
+    showToast('Name can only contain letters and spaces.', 'error'); return false;
+  }
+  if (name.trim().length < 2) {
+    showToast('Name must be at least 2 characters.', 'error'); return false;
+  }
+
+  // ── Email ───────────────────────────────────────────────
+  if (!email.trim()) {
+    showToast('Email is required.', 'error'); return false;
+  }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+    showToast('Please enter a valid email address.', 'error'); return false;
+  }
+
+  // ── Phone (optional but if filled must be 10 digits) ───
+  if (phone && !/^\d{10}$/.test(phone)) {
+    showToast('Phone number must be exactly 10 digits (numbers only).', 'error'); return false;
+  }
+
+  // ── Password ────────────────────────────────────────────
+  if (!editingWorker && !password) {
+    showToast('Password is required.', 'error'); return false;
+  }
+  if (password) {
+    if (password.length < 6) {
+      showToast('Password must be at least 6 characters.', 'error'); return false;
+    }
+    if (!/(?=.*[a-z])/.test(password)) {
+      showToast('Password must contain at least one lowercase letter.', 'error'); return false;
+    }
+    if (!/(?=.*[A-Z])/.test(password)) {
+      showToast('Password must contain at least one uppercase letter.', 'error'); return false;
+    }
+    if (!/(?=.*\d)/.test(password)) {
+      showToast('Password must contain at least one number.', 'error'); return false;
+    }
+    if (!/(?=.*[@$!%*?&])/.test(password)) {
+      showToast('Password must contain at least one special character (@$!%*?&).', 'error'); return false;
+    }
+  }
+
+  // ── Worker-specific ─────────────────────────────────────
+  if (!editingWorker && role === 'Worker') {
+    if (!location.length) {
+      showToast('Please select at least one preferred field.', 'error'); return false;
+    }
+    if (!specialty.length) {
+      showToast('Please select at least one specialty.', 'error'); return false;
+    }
+    if (!manHoursPerDay) {
+      showToast('Max hours per day is required.', 'error'); return false;
+    }
+  }
+
+  // ── Supervisor-specific ─────────────────────────────────
+  if (!editingWorker && role === 'Supervisor' && !field_id) {
+    showToast('Please assign a field for the supervisor.', 'error'); return false;
+  }
+
+  return true;
+};
+
     // ── Save: add or update ───────────────────────────────
     const handleSaveWorker = async () => {
-        const { name, email, phone, password, role, location, specialty, manHoursPerDay, field_id } = form;
+  if (!validateWorkerForm()) return;   // ✅ all validation in one place
 
-        if (!name || !email) {
-            showToast('Name and email are required', 'error'); return;
-        }
-        if (!editingWorker && !password) {
-            showToast('Password is required', 'error'); return;
-        }
+  setSaving(true);
+  try {
+    const { name, email, phone, password, role, location, specialty, manHoursPerDay, field_id } = form;
 
-        const isCreate = !editingWorker;
-
-        if (isCreate) {
-            if (role === 'Worker' && (!location.length || !specialty.length || !manHoursPerDay)) {
-                showToast('Location, specialty, and hours/day are required for workers', 'error');
-                return;
-            }
-            if (role === 'Supervisor' && !field_id) {
-                showToast('Field assignment is required for supervisors', 'error');
-                return;
-            }
-        }
-
-        setSaving(true);
-        try {
-            const payload = {
-                full_name: name,
-                email,
-                phone,
-                role,
-                ...(role === 'Worker'
-                    ? { location, specialty, manHoursPerDay: parseInt(manHoursPerDay) }
-                    : { field_id: parseInt(field_id) }
-                ),
-            };
-            if (!editingWorker) payload.password = password;
-            if (editingWorker && password) payload.password = password;
-
-            if (editingWorker) {
-                await api.put(`${API_BASE}/workers/${editingWorker.user_id}`, payload);
-                showToast('Worker updated successfully!');
-            } else {
-                await api.post(`${API_BASE}/workers`, payload);
-                showToast('Worker registered successfully!');
-            }
-
-            await fetchWorkers();
-            await fetchDropdowns();
-            closeModals();
-        } catch (err) {
-            showToast(err.response?.data?.message || err.message, 'error');
-        } finally {
-            setSaving(false);
-        }
+    const payload = {
+      full_name: name.trim(),
+      email:     email.trim(),
+      phone:     phone || null,
+      role,
+      ...(role === 'Worker'
+        ? { location, specialty, manHoursPerDay: parseInt(manHoursPerDay) }
+        : { field_id: parseInt(field_id) }
+      ),
     };
+    if (!editingWorker) payload.password = password;
+    if (editingWorker && password) payload.password = password;
+
+    if (editingWorker) {
+      await api.put(`${API_BASE}/workers/${editingWorker.user_id}`, payload);
+      showToast('Worker updated successfully!');
+    } else {
+      await api.post(`${API_BASE}/workers`, payload);
+      showToast('Worker registered successfully!');
+    }
+
+    await fetchWorkers();
+    await fetchDropdowns();
+    closeModals();
+  } catch (err) {
+    showToast(err.response?.data?.message || err.message, 'error');
+  } finally {
+    setSaving(false);
+  }
+};
 
     // ── Delete ────────────────────────────────────────────
     const handleDeleteWorker = async (worker) => {
@@ -836,7 +888,11 @@ const WorkforceManagement = ({ logo }) => {
                                         type="text"
                                         placeholder="Full name"
                                         value={form.name}
-                                        onChange={e => setFormField('name', e.target.value)}
+                                        onChange={e => {
+    // Block numbers and symbols while typing
+                                            const val = e.target.value;
+                                            if (/^[a-zA-Z\s]*$/.test(val)) setFormField('name', val);
+                                        }}
                                     />
                                 </div>
                                 <div className="form-group">
@@ -845,8 +901,12 @@ const WorkforceManagement = ({ logo }) => {
                                         type="tel"
                                         placeholder="+94701234567"
                                         value={form.phone}
-                                        onChange={e => setFormField('phone', e.target.value)}
-                                    />
+                                        onChange={e => {
+                                            // Only allow digits
+                                            const val = e.target.value.replace(/\D/g, '');
+                                            setFormField('phone', val);
+                                        }}
+                                                                            />
                                 </div>
                             </div>
 
@@ -895,7 +955,7 @@ const WorkforceManagement = ({ logo }) => {
                                                                 }));
                                                             }}
                                                         />
-                                                        <span>{field.field_name} ({field.crop_name})</span>
+                                                        <span>{field.field_name} ({field.location})</span>
                                                     </label>
                                                 ))}
                                             </div>
@@ -908,7 +968,13 @@ const WorkforceManagement = ({ logo }) => {
                                                 max="12"
                                                 placeholder="e.g. 8"
                                                 value={form.manHoursPerDay}
-                                                onChange={e => setFormField('manHoursPerDay', e.target.value)}
+                                                onChange={e => {
+                                                    // Only allow positive integers
+                                                    const val = e.target.value.replace(/[^0-9]/g, '');
+                                                    if (val === '' || (Number(val) >= 1 && Number(val) <= 12)) {
+                                                    setFormField('manHoursPerDay', val);
+                                                    }
+                                                }}
                                             />
                                         </div>
                                     </div>

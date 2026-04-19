@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  FiCalendar, FiCheckCircle, FiClock, FiAlertCircle,
+  FiCalendar, FiBell, FiCheckCircle, FiClock, FiAlertCircle,
   FiTrendingUp, FiMapPin, FiUsers, FiRefreshCw,
 } from 'react-icons/fi';
 import './SupervisorDashboard.css';
@@ -124,7 +124,7 @@ export default function SupervisorDashboard() {
               style={{ position: 'relative' }}
               onClick={() => setShowNotifications(!showNotifications)}
             >
-              🔔
+              <FiBell size={20}/>
               {notifications.length > 0 && (
                 <span style={{
                   position: 'absolute',

@@ -350,6 +350,7 @@
     transition: var(--transition-smooth);
     position: relative;
     border-left: 4px solid var(--task-accent, var(--accent-bright));
+    min-height: 50px;
 }
 .task-card:hover {
     transform: translateY(-3px);

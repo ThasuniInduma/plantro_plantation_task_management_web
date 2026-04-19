@@ -133,60 +133,69 @@ const FieldManagement = ({ logo }) => {
         setFormData(emptyForm);
     };
 
+    const validateFieldName = (name) => {
+  if (!name.trim()) return 'Field name is required.';
+  if (name.trim().length < 2) return 'Field name must be at least 2 characters.';
+  // ✅ Allow letters, numbers, spaces — no symbols
+  if (!/^[a-zA-Z0-9\s]+$/.test(name.trim()))
+    return 'Field name can only contain letters, numbers and spaces (no symbols).';
+  // ✅ Must have at least one letter
+  if (!/[a-zA-Z]/.test(name))
+    return 'Field name must contain at least one letter.';
+  return null;
+};
+
     const handleSave = async () => {
-        const { field_name, crop_id, location, area, supervisor_id } = formData;
+  const { field_name, crop_id, location, area, supervisor_id } = formData;
 
-        if (!field_name || !crop_id || !location || !area) {
-            alert('Please fill in all required fields (*).');
-            return;
-        }
+  // ── Validations ────────────────────────────────────────────
+  const nameError = validateFieldName(field_name);
+  if (nameError) { alert(nameError); return; }
 
-        setLoading(true);
-        try {
-            const payload = {
-                field_name,
-                crop_id: Number(crop_id),
-                location,
-                area: parseFloat(area),
-                supervisor_id: supervisor_id ? Number(supervisor_id) : null
-            };
+  if (!crop_id) { alert('Please select a crop type.'); return; }
 
-            const url = editingField
-                ? `${API}/fields/${editingField.field_id}`
-                : `${API}/fields`;
+  if (!location.trim()) { alert('Location is required.'); return; }
+  if (location.trim().length < 3) { alert('Please enter a valid location.'); return; }
 
-            const method = editingField ? 'PUT' : 'POST';
+  if (!area) { alert('Area is required.'); return; }
+  if (isNaN(area) || Number(area) <= 0) { alert('Area must be a positive number.'); return; }
+  if (Number(area) > 10000) { alert('Area seems too large. Please verify.'); return; }
 
-            const res = await fetch(url, {
-                method,
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-
-            const data = await res.json();
-            if (!res.ok) throw new Error(data.error || 'Save failed');
-
-            if (editingField) {
-                setFields(prev =>
-                    prev.map(f =>
-                        f.field_id === editingField.field_id ? data : f
-                    )
-                );
-
-                if (selectedField?.field_id === editingField.field_id) {
-                    setSelectedField(data);
-                }
-            } else {
-                setFields(prev => [...prev, data]);
-            }
-
-            closeModal();
-        } catch (err) {
-            alert(err.message || 'Something went wrong');
-        } finally {
-            setLoading(false);
-        }
+  setLoading(true);
+  try {
+    const payload = {
+      field_name: field_name.trim(),
+      crop_id: Number(crop_id),
+      location: location.trim(),
+      area: parseFloat(area),
+      supervisor_id: supervisor_id ? Number(supervisor_id) : null
     };
+
+    const url    = editingField ? `${API}/fields/${editingField.field_id}` : `${API}/fields`;
+    const method = editingField ? 'PUT' : 'POST';
+
+    const res  = await fetch(url, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Save failed');
+
+    if (editingField) {
+      setFields(prev => prev.map(f => f.field_id === editingField.field_id ? data : f));
+      if (selectedField?.field_id === editingField.field_id) setSelectedField(data);
+    } else {
+      setFields(prev => [...prev, data]);
+    }
+
+    closeModal();
+  } catch (err) {
+    alert(err.message || 'Something went wrong');
+  } finally {
+    setLoading(false);
+  }
+};
 
     const handleDelete = async (fieldId) => {
         if (!window.confirm('Delete this field? This cannot be undone.')) return;
@@ -625,7 +634,18 @@ const FieldManagement = ({ logo }) => {
                                     <div className="fm-form-group">
                                         <label>Field Name *</label>
                                         <input type="text" placeholder="e.g. North Hill Field"
-                                            value={formData.field_name} onChange={setField('field_name')} />
+                                            value={formData.field_name} onChange={(e) => {
+                                                // ✅ Block symbols while typing — allow letters, numbers, spaces only
+                                                const val = e.target.value;
+                                                if (/^[a-zA-Z0-9\s]*$/.test(val)) {
+                                                    setFormData(prev => ({ ...prev, field_name: val }));
+                                                }
+                                                }} />
+                                                {formData.field_name && !/[a-zA-Z]/.test(formData.field_name) && (
+                                                    <span style={{ fontSize: 11, color: '#ef4444', marginTop: 4, display: 'block' }}>
+                                                    Must contain at least one letter
+                                                    </span>
+                                                )}
                                     </div>
                                     <div className="fm-form-group">
                                         <label>Crop Type *</label>

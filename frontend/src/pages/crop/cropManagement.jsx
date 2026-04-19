@@ -160,43 +160,65 @@ const CropManagement = ({ logo }) => {
     };
 
     // ── Crop handlers ────────────────────────────────────────────────────────
-    const handleAddCrop = async () => {
-        if (!newCrop.name || !newCrop.description) return;
-        try {
-            const res = await fetch(`${BASE}/crops`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(newCrop)
-            });
-            const data = await res.json();
-            setCrops(prev => [...prev, {
-                id: data.id,
-                name: data.name,
-                description: data.description,
-                tasks: []
-            }]);
-            closeModals();
-        } catch { alert('Failed to add crop.'); }
-    };
+    // ── Validation helper ────────────────────────────────────────────────────
+const validateCropName = (name) => {
+  if (!name.trim()) return 'Crop name is required.';
+  if (!/^[a-zA-Z\s]+$/.test(name.trim()))
+    return 'Crop name can only contain letters and spaces.';
+  if (name.trim().length < 2) return 'Crop name must be at least 2 characters.';
+  return null;
+};
 
-    const handleUpdateCrop = async () => {
-        try {
-            const res = await fetch(`${BASE}/crops/${editingCrop.id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(newCrop)
-            });
-            const data = await res.json();
-            setCrops(prev => prev.map(c =>
-                c.id === editingCrop.id
-                    ? { ...c, name: data.name, description: data.description }
-                    : c
-            ));
-            if (selectedCrop?.id === editingCrop.id)
-                setSelectedCrop(p => ({ ...p, name: data.name, description: data.description }));
-            closeModals();
-        } catch { alert('Failed to update crop.'); }
-    };
+const handleAddCrop = async () => {
+  const nameError = validateCropName(newCrop.name);
+  if (nameError) { alert(nameError); return; }
+  if (!newCrop.description.trim()) { alert('Description is required.'); return; }
+
+  try {
+    const res = await fetch(`${BASE}/crops`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: newCrop.name.trim(),
+        description: newCrop.description.trim()
+      })
+    });
+    const data = await res.json();
+    setCrops(prev => [...prev, {
+      id: data.id,
+      name: data.name,
+      description: data.description,
+      tasks: []
+    }]);
+    closeModals();
+  } catch { alert('Failed to add crop.'); }
+};
+
+const handleUpdateCrop = async () => {
+  const nameError = validateCropName(newCrop.name);
+  if (nameError) { alert(nameError); return; }
+  if (!newCrop.description.trim()) { alert('Description is required.'); return; }
+
+  try {
+    const res = await fetch(`${BASE}/crops/${editingCrop.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: newCrop.name.trim(),
+        description: newCrop.description.trim()
+      })
+    });
+    const data = await res.json();
+    setCrops(prev => prev.map(c =>
+      c.id === editingCrop.id
+        ? { ...c, name: data.name, description: data.description }
+        : c
+    ));
+    if (selectedCrop?.id === editingCrop.id)
+      setSelectedCrop(p => ({ ...p, name: data.name, description: data.description }));
+    closeModals();
+  } catch { alert('Failed to update crop.'); }
+};
 
     const handleDeleteCrop = async (cropId) => {
         if (!window.confirm('Delete this crop and all its tasks?')) return;
@@ -210,40 +232,62 @@ const CropManagement = ({ logo }) => {
         } catch { alert('Failed to delete crop.'); }
     };
 
+    const validateTaskForm = () => {
+  const { task_name, description, frequency_days, estimated_man_hours } = taskForm;
+
+  if (!task_name.trim()) {
+    alert('Task name is required.'); return false;
+  }
+  if (!/^[a-zA-Z\s]+$/.test(task_name.trim())) {
+    alert('Task name can only contain letters and spaces.'); return false;
+  }
+  if (!description.trim()) {
+    alert('Description is required.'); return false;
+  }
+  if (!frequency_days) {
+    alert('Frequency is required.'); return false;
+  }
+  if (!/^\d+$/.test(String(frequency_days)) || Number(frequency_days) < 1) {
+    alert('Frequency must be a positive whole number.'); return false;
+  }
+  if (!estimated_man_hours) {
+    alert('Estimated man-hours is required.'); return false;
+  }
+  if (!/^\d+$/.test(String(estimated_man_hours)) || Number(estimated_man_hours) < 1) {
+    alert('Estimated man-hours must be a positive whole number.'); return false;
+  }
+  return true;
+};
+
     // ── Task handlers ────────────────────────────────────────────────────────
     const handleAddTask = async () => {
-        const { task_id, task_name, description, frequency_days, estimated_man_hours } = taskForm;
-        if (!task_name || !description || !frequency_days || !estimated_man_hours) {
-            alert('Please fill in all fields.');
-            return;
-        }
-        try {
-            const res = await fetch(`${BASE}/tasks`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    crop_id: selectedCrop.id,
-                    task_id: task_id || null,
-                    task_name,
-                    description,
-                    frequency_days: Number(frequency_days),
-                    estimated_man_hours: Number(estimated_man_hours)
-                })
-            });
-            if (!res.ok) throw new Error();
-            const saved = await res.json();
+  if (!validateTaskForm()) return;
 
-            if (!task_id) {
-                setAllTasks(prev => [
-                    ...prev,
-                    { task_id: saved.task_id, task_name, description }
-                ]);
-            }
+  const { task_id, task_name, description, frequency_days, estimated_man_hours } = taskForm;
+  try {
+    const res = await fetch(`${BASE}/tasks`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        crop_id: selectedCrop.id,
+        task_id: task_id || null,
+        task_name,
+        description,
+        frequency_days:      Number(frequency_days),
+        estimated_man_hours: Number(estimated_man_hours)
+      })
+    });
+    if (!res.ok) throw new Error();
+    const saved = await res.json();
 
-            await refreshCropData(selectedCrop.id);
-            closeModals();
-        } catch { alert('Failed to add task.'); }
-    };
+    if (!task_id) {
+      setAllTasks(prev => [...prev, { task_id: saved.task_id, task_name, description }]);
+    }
+
+    await refreshCropData(selectedCrop.id);
+    closeModals();
+  } catch { alert('Failed to add task.'); }
+};
 
     const handleEditTask = (cropTask) => {
         setEditingCropTask(cropTask);
@@ -530,8 +574,19 @@ const CropManagement = ({ logo }) => {
                                     type="text"
                                     placeholder="e.g. Tea, Rubber"
                                     value={newCrop.name}
-                                    onChange={(e) => setNewCrop({ ...newCrop, name: e.target.value })}
+                                    onChange={(e) => {
+                                        // ✅ Block numbers and symbols while typing
+                                        const val = e.target.value;
+                                        if (/^[a-zA-Z\s]*$/.test(val)) {
+                                            setNewCrop({ ...newCrop, name: val });
+                                        }
+                                        }}
                                 />
+                                {newCrop.name && !/^[a-zA-Z\s]+$/.test(newCrop.name) && (
+                                    <span style={{ fontSize: 11, color: '#ef4444', marginTop: 4, display: 'block' }}>
+                                    Only letters and spaces allowed
+                                    </span>
+                                )}
                             </div>
                             <div className="form-group">
                                 <label>Description *</label>
@@ -572,11 +627,17 @@ const CropManagement = ({ logo }) => {
                                             type="text"
                                             placeholder="Type or search existing tasks..."
                                             value={taskSearch}
-                                            onChange={(e) => handleTaskNameInput(e.target.value)}
+                                            onChange={(e) => {
+                                                const val = e.target.value;
+                                                // ✅ Only letters and spaces allowed
+                                                if (/^[a-zA-Z\s]*$/.test(val)) {
+                                                handleTaskNameInput(val);
+                                                }
+                                            }}
                                             onFocus={() => setShowSuggestions(true)}
                                             disabled={!!editingCropTask}
                                             autoComplete="off"
-                                        />
+                                            />
                                     </div>
                                 </div>
 
@@ -647,9 +708,18 @@ const CropManagement = ({ logo }) => {
                                         type="number"
                                         placeholder="e.g. 7"
                                         min="1"
+                                        step="1"
                                         value={taskForm.frequency_days}
-                                        onChange={(e) => setTaskForm(f => ({ ...f, frequency_days: e.target.value }))}
-                                    />
+                                        onChange={(e) => {
+                                            // ✅ Only positive integers
+                                            const val = e.target.value.replace(/[^0-9]/g, '');
+                                            setTaskForm(f => ({ ...f, frequency_days: val }));
+                                        }}
+                                        onKeyDown={(e) => {
+                                            // Block decimal point and minus
+                                            if (e.key === '.' || e.key === '-' || e.key === 'e') e.preventDefault();
+                                        }}
+                                        />
                                 </div>
                                 <div className="form-group">
                                     <label>Estimated Man-Hours *</label>
@@ -657,9 +727,17 @@ const CropManagement = ({ logo }) => {
                                         type="number"
                                         placeholder="e.g. 10"
                                         min="1"
+                                        step="1"
                                         value={taskForm.estimated_man_hours}
-                                        onChange={(e) => setTaskForm(f => ({ ...f, estimated_man_hours: e.target.value }))}
-                                    />
+                                        onChange={(e) => {
+                                            // ✅ Only positive integers
+                                            const val = e.target.value.replace(/[^0-9]/g, '');
+                                            setTaskForm(f => ({ ...f, estimated_man_hours: val }));
+                                        }}
+                                        onKeyDown={(e) => {
+                                            if (e.key === '.' || e.key === '-' || e.key === 'e') e.preventDefault();
+                                        }}
+                                        />
                                 </div>
                             </div>
                         </div>

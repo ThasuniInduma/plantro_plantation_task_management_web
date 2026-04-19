@@ -10,6 +10,7 @@ import {
   getWorkerProfile,        // ← add
   updateWorkerProfile,     // ← add
   getWorkerTasksByDate,
+  checkProfileStatus
 } from "../controllers/workerController.js";
 import { authenticate } from "../middleware/authMiddleware.js";
 import { authorize } from "../middleware/authorize.js";
@@ -25,6 +26,7 @@ router.get("/my-workers", authorize("supervisor"),          getWorkersForSupervi
 // Worker profile  ← add these two
 router.get("/profile", authorize("worker"), getWorkerProfile);
 router.put("/profile", authorize("worker"), updateWorkerProfile);
+router.get('/profile-status', authenticate, checkProfileStatus);
 
 // Worker tasks
 router.get("/tasks",                        authorize("worker"), getWorkerTasks);

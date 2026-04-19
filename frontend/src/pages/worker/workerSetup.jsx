@@ -8,14 +8,12 @@ import {
   FiPhone,
   FiCheckCircle,
   FiClock,
-  FiMapPin,
   FiChevronRight,
   FiPlus,
   FiX,
 } from 'react-icons/fi';
 import './workerSetup.css';
 
-// Available skill options
 const SKILL_OPTIONS = [
   'Tea Plucking',
   'Cinnamon Peeling',
@@ -33,19 +31,17 @@ const WorkerSetup = () => {
   const navigate = useNavigate();
   const { backendUrl, userData, setUserData } = useContext(AppContext);
 
-  const [step, setStep] = useState(1); // 1 = personal info, 2 = work info
+  const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
 
-  // Step 1 fields (pre-fill from userData if available)
   const [fullName, setFullName] = useState(userData?.full_name || '');
   const [phone, setPhone] = useState(userData?.phone || '');
 
-  // Step 2 fields
   const [selectedSkills, setSelectedSkills] = useState([]);
   const [customSkill, setCustomSkill] = useState('');
   const [maxDailyHours, setMaxDailyHours] = useState(8);
 
-  // ── Helpers ─────────────────────────────────
+  // ── Helpers ──────────────────────────────────────────────────────────
 
   const toggleSkill = (skill) => {
     setSelectedSkills((prev) =>
@@ -64,26 +60,30 @@ const WorkerSetup = () => {
     setSelectedSkills((prev) => prev.filter((s) => s !== skill));
   };
 
-  // ── Step 1 submit ────────────────────────────
+  // ── Step 1 submit ─────────────────────────────────────────────────────
 
   const handleStep1 = async (e) => {
     e.preventDefault();
+
     if (!fullName.trim()) {
       toast.error('Please enter your full name.');
       return;
     }
-    if (phone.length < 10) {
-      toast.error('Please enter a valid phone number.');
+
+    if (!/^\d{10}$/.test(phone)) {
+      toast.error('Phone number must be exactly 10 digits (numbers only)');
       return;
     }
 
     try {
       setLoading(true);
-      // Update user info in backend
       await axios.put(
         `${backendUrl}/api/auth/user/profile`,
         { full_name: fullName, phone },
-        { withCredentials: true }
+        {
+          withCredentials: true,
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+        }
       );
       setStep(2);
     } catch (err) {
@@ -93,10 +93,11 @@ const WorkerSetup = () => {
     }
   };
 
-  // ── Step 2 submit ────────────────────────────
+  // ── Step 2 submit ─────────────────────────────────────────────────────
 
   const handleStep2 = async (e) => {
     e.preventDefault();
+
     if (selectedSkills.length === 0) {
       toast.error('Please select at least one skill.');
       return;
@@ -111,12 +112,14 @@ const WorkerSetup = () => {
           preferred_locations: [],
           max_daily_hours: Number(maxDailyHours),
         },
-        { withCredentials: true }
+        {
+          withCredentials: true,
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+        }
       );
 
       if (data.success) {
         toast.success('Profile setup complete! Welcome 🌿');
-        // Refresh userData so dashboard has latest name
         setUserData((prev) => ({ ...prev, full_name: fullName, phone }));
         navigate('/worker/dashboard');
       } else {
@@ -129,7 +132,7 @@ const WorkerSetup = () => {
     }
   };
 
-  // ── Render ───────────────────────────────────
+  // ── Render ────────────────────────────────────────────────────────────
 
   return (
     <div className="setup-page">
@@ -143,7 +146,6 @@ const WorkerSetup = () => {
             helps your supervisor assign the right tasks to you.
           </p>
 
-          {/* Step indicators */}
           <div className="step-indicators">
             <div className={`step-dot ${step >= 1 ? 'active' : ''}`}>
               <span>1</span>
@@ -161,7 +163,9 @@ const WorkerSetup = () => {
       {/* Right form panel */}
       <div className="setup-form-area">
         <div className="setup-card">
-          {step === 1 ? (
+
+          {/* ── Step 1 ── */}
+          {step === 1 && (
             <>
               <div className="setup-card-header">
                 <div className="setup-step-badge">Step 1 of 2</div>
@@ -194,21 +198,21 @@ const WorkerSetup = () => {
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     placeholder="e.g. 0771234567"
+                    maxLength={10}
                     required
                   />
                 </div>
 
-                <button
-                  type="submit"
-                  className="setup-btn-primary"
-                  disabled={loading}
-                >
+                <button type="submit" className="setup-btn-primary" disabled={loading}>
                   {loading ? 'Saving…' : 'Next'}
                   <FiChevronRight size={18} />
                 </button>
               </form>
             </>
-          ) : (
+          )}
+
+          {/* ── Step 2 ── */}
+          {step === 2 && (
             <>
               <div className="setup-card-header">
                 <div className="setup-step-badge">Step 2 of 2</div>
@@ -222,9 +226,7 @@ const WorkerSetup = () => {
                   <label>
                     <FiCheckCircle size={16} />
                     Your Skills
-                    <span className="label-hint">
-                      (select all that apply)
-                    </span>
+                    <span className="label-hint">(select all that apply)</span>
                   </label>
 
                   <div className="skills-grid">
@@ -232,14 +234,10 @@ const WorkerSetup = () => {
                       <button
                         key={skill}
                         type="button"
-                        className={`skill-chip ${
-                          selectedSkills.includes(skill) ? 'selected' : ''
-                        }`}
+                        className={`skill-chip ${selectedSkills.includes(skill) ? 'selected' : ''}`}
                         onClick={() => toggleSkill(skill)}
                       >
-                        {selectedSkills.includes(skill) && (
-                          <FiCheckCircle size={13} />
-                        )}
+                        {selectedSkills.includes(skill) && <FiCheckCircle size={13} />}
                         {skill}
                       </button>
                     ))}
@@ -269,16 +267,13 @@ const WorkerSetup = () => {
                     </button>
                   </div>
 
-                  {/* Selected skills tags */}
+                  {/* Selected skill tags */}
                   {selectedSkills.length > 0 && (
                     <div className="selected-skills">
                       {selectedSkills.map((skill) => (
                         <span key={skill} className="skill-tag">
                           {skill}
-                          <button
-                            type="button"
-                            onClick={() => removeSkill(skill)}
-                          >
+                          <button type="button" onClick={() => removeSkill(skill)}>
                             <FiX size={12} />
                           </button>
                         </span>
@@ -298,9 +293,7 @@ const WorkerSetup = () => {
                       <button
                         key={h}
                         type="button"
-                        className={`hours-chip ${
-                          maxDailyHours === h ? 'selected' : ''
-                        }`}
+                        className={`hours-chip ${maxDailyHours === h ? 'selected' : ''}`}
                         onClick={() => setMaxDailyHours(h)}
                       >
                         {h}h
@@ -317,11 +310,7 @@ const WorkerSetup = () => {
                   >
                     Back
                   </button>
-                  <button
-                    type="submit"
-                    className="setup-btn-primary"
-                    disabled={loading}
-                  >
+                  <button type="submit" className="setup-btn-primary" disabled={loading}>
                     {loading ? 'Saving…' : 'Complete Setup'}
                     <FiCheckCircle size={18} />
                   </button>
@@ -329,6 +318,7 @@ const WorkerSetup = () => {
               </form>
             </>
           )}
+
         </div>
       </div>
     </div>

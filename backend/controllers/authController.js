@@ -10,14 +10,37 @@ export const register = async (req, res) => {
   const { name, email, phone, password } = req.body;
 
   try {
+    // ── Validations ──────────────────────────────────────────
+    if (!name || !email || !phone || !password) {
+      return res.status(400).json({ success: false, message: "All fields are required" });
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ success: false, message: "Invalid email address" });
+    }
+
+    // ✅ Phone: exactly 10 digits, no letters or symbols
+    const phoneRegex = /^\d{10}$/;
+    if (!phoneRegex.test(phone)) {
+      return res.status(400).json({ success: false, message: "Phone number must be exactly 10 digits" });
+    }
+
+    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&]).{6,}$/;
+    if (!passwordRegex.test(password)) {
+      return res.status(400).json({ success: false, message: "Password must have uppercase, lowercase, number, and special character" });
+    }
+
+    // ── Check existing ───────────────────────────────────────
     const [existing] = await db.query(
       "SELECT email FROM users WHERE email=? UNION SELECT email FROM temp_users WHERE email=?",
       [email, email]
     );
-
     if (existing.length) {
       return res.status(400).json({ success: false, message: "User already exists" });
     }
+
+    // ... rest of your register code unchanged
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const expire = Date.now() + 10 * 60 * 1000;
@@ -125,9 +148,18 @@ export const resendOTP = async (req, res) => {
    LOGIN
    ========================= */
 export const login = async (req, res) => {
-  const { email, password } = req.body;
+    const { email, password } = req.body;
 
   try {
+    // ── Validations ──────────────────────────────────────────
+    if (!email || !password) {
+      return res.status(400).json({ success: false, message: "Email and password are required" });
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ success: false, message: "Invalid email address" });
+    }
     const [rows] = await db.query(
       `SELECT u.*, r.role_name FROM users u
       JOIN roles r ON u.role_id = r.role_id
@@ -257,6 +289,29 @@ export const resetPassword = async (req, res) => {
 
     res.json({ success: true, message: "Password reset successful" });
 
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+export const updateUserProfile = async (req, res) => {
+  try {
+    const { full_name, phone } = req.body;
+
+    if (!full_name?.trim()) {
+      return res.status(400).json({ success: false, message: "Name is required" });
+    }
+
+    if (!/^\d{10}$/.test(phone)) {
+      return res.status(400).json({ success: false, message: "Phone must be exactly 10 digits" });
+    }
+
+    await db.query(
+      "UPDATE users SET full_name = ?, phone = ? WHERE user_id = ?",
+      [full_name.trim(), phone, req.user.id]
+    );
+
+    res.json({ success: true });
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, message: "Server error" });

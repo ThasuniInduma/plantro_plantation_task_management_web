@@ -86,14 +86,7 @@ if (data.success) {
     role_name: role
   };
 
-  // ✅ Clear old session first
-  localStorage.removeItem("token");
-  localStorage.removeItem("user");
 
-  toast.success('Login successful');
-
-  setUserData(user);
-  setIsLoggedIn(true);
 
   // ✅ Clear old session
   localStorage.removeItem("token");
@@ -115,7 +108,19 @@ if (data.success) {
 } else if (role === 'supervisor') {
   navigate('/supervisor');
 } else if (role === 'worker') {
-  navigate('/worker/dashboard');
+  try {
+      const { data: profileData } = await axios.get(
+        `${backendUrl}/api/worker/profile-status`,
+        { headers: { Authorization: `Bearer ${data.token}` }, withCredentials: true }
+      );
+      if (profileData.profileComplete) {
+        navigate('/worker/dashboard');
+      } else {
+        navigate('/worker/setup');   // first time → setup page
+      }
+    } catch {
+      navigate('/worker/setup');     // fallback to setup on error
+    }
 }
 } else {
   toast.error(data.message || 'Login failed');

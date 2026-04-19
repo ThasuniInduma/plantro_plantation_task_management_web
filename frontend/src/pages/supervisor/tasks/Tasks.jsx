@@ -216,11 +216,19 @@ const Tasks = () => {
   const getDaysInMonth = (d) => new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
   const getFirstDay    = (d) => new Date(d.getFullYear(), d.getMonth(), 1).getDay();
 
-  const dotsMap = {};
-  calendarDots.forEach(r => {
-    const key = String(r.date || r.assigned_date).split('T')[0];
-    dotsMap[key] = r.task_count;
-  });
+  const getLocalDateKey = (dateStr) => {
+  const d = new Date(dateStr);
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const dotsMap = {};
+calendarDots.forEach(r => {
+  const key = getLocalDateKey(r.date || r.assigned_date);
+  dotsMap[key] = r.task_count;
+});
 
   const calendarDaysList = () => {
     const days = [];

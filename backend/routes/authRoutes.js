@@ -6,7 +6,8 @@ import {
   login,
   getUser,
   sendResetOTP,
-  resetPassword
+  resetPassword,
+  updateUserProfile 
 } from "../controllers/authController.js";
 
 import { authenticate } from "../middleware/authMiddleware.js";
@@ -30,5 +31,6 @@ router.get("/user", authenticate, getUser);
 
 router.post("/send-reset-otp", sendResetOTP);
 router.post("/reset-password", resetPassword);
+router.put("/user/profile", authenticate, updateUserProfile);
 
 export default router;
