@@ -698,11 +698,14 @@ export const supervisorVerify = async (req, res) => {
       // Check if ALL workers assigned to this task on this date have completed
       const [allAssignments] = await conn.query(
         `SELECT assignment_id, status FROM task_assignments 
-         WHERE task_id=? AND field_id=? AND assigned_date=?`,
+        WHERE task_id=? AND field_id=? AND assigned_date=? 
+        AND status != 'rejected'`,
         [assignTask, assignField, assigned_date]
       );
-      
-      const allCompleted = allAssignments.every(a => a.status === 'completed');
+
+      const allCompleted =
+        allAssignments.length > 0 &&
+        allAssignments.every(a => a.status === 'completed');
       if (!allCompleted) {
         await conn.rollback();
         const pending = allAssignments.filter(a => a.status !== 'completed').length;
