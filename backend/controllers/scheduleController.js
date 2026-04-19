@@ -485,14 +485,22 @@ export const updateAssignmentStatus = async (req, res) => {
         `UPDATE task_assignments SET status = 'completed', completed_at = ? WHERE assignment_id = ?`,
         [now, assignment_id]
       );
-      // update schedule
-      const lastDone = now;
-      const nextDue = new Date(lastDone);
-      nextDue.setDate(nextDue.getDate() + assign.frequency_days);
-      await db.query(
-        `UPDATE field_task_schedule SET last_done_date = ?, next_due_date = ?, pending_verification = 0 WHERE schedule_id = ?`,
-        [lastDone, nextDue, assign.schedule_id]
+
+      const [allAssignments] = await db.query(
+        `SELECT COUNT(*) AS total,
+                SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) AS completed
+         FROM task_assignments
+         WHERE task_id = ? AND field_id = ? AND assigned_date = ?`,
+        [assign.task_id, assign.field_id, assign.assigned_date]
       );
+
+      const allCompleted = allAssignments[0].total > 0 && allAssignments[0].total === allAssignments[0].completed;
+      if (allCompleted) {
+        await db.query(
+          `UPDATE field_task_schedule SET pending_verification = 1, pending_assignment_id = ? WHERE schedule_id = ?`,
+          [assignment_id, assign.schedule_id]
+        );
+      }
     } else if (status === 'in_progress') {
       await db.query(
         `UPDATE task_assignments SET status = 'in_progress' WHERE assignment_id = ?`,
@@ -675,6 +683,34 @@ export const supervisorVerify = async (req, res) => {
     }
 
     if (action === "approve") {
+      // Get assignment details to check if ALL workers are complete
+      const [assignmentInfo] = await conn.query(
+        `SELECT task_id, field_id, assigned_date FROM task_assignments WHERE assignment_id=?`,
+        [assignment_id]
+      );
+      if (!assignmentInfo.length) {
+        await conn.rollback();
+        return res.status(404).json({ error: "Assignment not found" });
+      }
+      
+      const { task_id: assignTask, field_id: assignField, assigned_date } = assignmentInfo[0];
+      
+      // Check if ALL workers assigned to this task on this date have completed
+      const [allAssignments] = await conn.query(
+        `SELECT assignment_id, status FROM task_assignments 
+         WHERE task_id=? AND field_id=? AND assigned_date=?`,
+        [assignTask, assignField, assigned_date]
+      );
+      
+      const allCompleted = allAssignments.every(a => a.status === 'completed');
+      if (!allCompleted) {
+        await conn.rollback();
+        const pending = allAssignments.filter(a => a.status !== 'completed').length;
+        return res.status(400).json({ 
+          error: `Cannot approve yet. ${pending} worker(s) still need to complete their tasks.` 
+        });
+      }
+
       await conn.query(
         `UPDATE task_assignments SET verified_by=?, verified_at=NOW(), status='completed' WHERE assignment_id=?`,
         [supervisorUserId, assignment_id]
@@ -890,27 +926,36 @@ export const getWorkersForSchedule = async (req, res) => {
     const safeParse = (d) => {
       if (!d) return [];
       if (Array.isArray(d)) return d;
-      try { return JSON.parse(d); } catch { return []; }
+      try { return JSON.parse(d); } catch (e) { 
+        console.warn("Parse error for:", d, e);
+        return []; 
+      }
     };
 
     let requiredSkills = [];
     if (task_id) {
-      const [skills] = await db.query(
-        `SELECT skill_name FROM task_skills WHERE task_id=?`, [task_id]
-      );
-      requiredSkills = skills.map(s => s.skill_name.toLowerCase().trim());
+      try {
+        const [skills] = await db.query(
+          `SELECT skill_name FROM task_skills WHERE task_id=?`, [task_id]
+        );
+        requiredSkills = skills.map(s => s.skill_name.toLowerCase().trim());
+      } catch (skillError) {
+        // task_skills table may not exist; skip skill filtering
+        console.warn("Skill filtering unavailable:", skillError.message);
+        requiredSkills = [];
+      }
     }
 
     const [workers] = await db.query(
-  `SELECT w.worker_id, w.user_id, w.skills, w.preferred_locations, w.max_daily_hours,
-          u.full_name, u.phone,
-          COALESCE(wa.status,'available') AS availability_status
-   FROM workers w
-   JOIN users u ON w.user_id=u.user_id
-   LEFT JOIN worker_availability wa ON wa.worker_id=w.worker_id AND wa.date=?
-   WHERE u.status='ACTIVE' AND u.role_id=3`,
-  [queryDate]
-);
+      `SELECT w.worker_id, w.user_id, w.skills, w.preferred_locations, w.max_daily_hours,
+              u.full_name, u.phone,
+              COALESCE(wa.status,'available') AS availability_status
+       FROM workers w
+       JOIN users u ON w.user_id=u.user_id
+       LEFT JOIN worker_availability wa ON wa.worker_id=w.worker_id AND wa.date=?
+       WHERE u.status='ACTIVE' AND u.role_id=3`,
+      [queryDate]
+    );
 
     // Attendance check
     const [attendance] = await db.query(
@@ -920,55 +965,76 @@ export const getWorkersForSchedule = async (req, res) => {
     const attendanceMap = {};
     attendance.forEach(a => { attendanceMap[a.worker_id] = a.status; });
 
-    let parsed = workers.map(w => ({
-  ...w,
-  skills: safeParse(w.skills).map(s => s.toLowerCase().trim()),
-  preferred_locations: safeParse(w.preferred_locations).map(Number)
-}));
-const [hoursUsed] = await db.query(
-  `SELECT worker_id, SUM(expected_hours) AS used
-   FROM task_assignments
-   WHERE assigned_date=? AND status!='rejected'
-   GROUP BY worker_id`,
-  [queryDate]
-);
+    let parsed = workers.map(w => {
+      try {
+        const skillsArray = safeParse(w.skills) || [];
+        const locationsArray = safeParse(w.preferred_locations) || [];
+        return {
+          ...w,
+          skills: skillsArray.map(s => String(s || '').toLowerCase().trim()).filter(s => s),
+          preferred_locations: locationsArray.map(loc => {
+            const num = Number(loc);
+            return isNaN(num) ? null : num;
+          }).filter(n => n !== null)
+        };
+      } catch (e) {
+        console.error("Error parsing worker:", w.worker_id, e);
+        return {
+          ...w,
+          skills: [],
+          preferred_locations: []
+        };
+      }
+    });
 
-const hoursMap = {};
-hoursUsed.forEach(h => {
-  hoursMap[h.worker_id] = Number(h.used);
-});
-
-const filtered = parsed.filter(w => {
-  const used = hoursMap[w.worker_id] || 0;
-  const remaining = w.max_daily_hours - used;
-
-  if (w.availability_status !== "available") return false;
-  if (remaining <= 0) return false;
-
-  // ✅ ONLY supervisor fields allowed
-  if (w.preferred_locations.length > 0) {
-    const match = w.preferred_locations.some(loc =>
-      supervisorFieldIds.includes(loc)
+    const [hoursUsed] = await db.query(
+      `SELECT worker_id, SUM(expected_hours) AS used
+       FROM task_assignments
+       WHERE assigned_date=? AND status!='rejected'
+       GROUP BY worker_id`,
+      [queryDate]
     );
-    if (!match) return false;
-  }
 
-  if (requiredSkills.length) {
-    const ok = requiredSkills.some(s => w.skills.includes(s));
-    if (!ok) return false;
-  }
+    const hoursMap = {};
+    hoursUsed.forEach(h => {
+      hoursMap[h.worker_id] = Number(h.used);
+    });
 
-  return true;
-});
+    const filtered = parsed.filter(w => {
+      const used = hoursMap[w.worker_id] || 0;
+      const maxHours = Number(w.max_daily_hours) || 8;
+      const remaining = maxHours - used;
+
+      if (w.availability_status !== "available") return false;
+      if (remaining <= 0) return false;
+
+      // ✅ ONLY supervisor fields allowed
+      if (w.preferred_locations && Array.isArray(w.preferred_locations) && w.preferred_locations.length > 0) {
+        const match = w.preferred_locations.some(loc => {
+          const locNum = Number(loc);
+          return !isNaN(locNum) && supervisorFieldIds.includes(locNum);
+        });
+        if (!match) return false;
+      }
+
+      // If has required skills, must have at least one
+      if (requiredSkills && Array.isArray(requiredSkills) && requiredSkills.length > 0) {
+        if (!w.skills || !Array.isArray(w.skills) || w.skills.length === 0) return false;
+        const ok = requiredSkills.some(s => w.skills.includes(s));
+        if (!ok) return false;
+      }
+
+      return true;
+    });
 
     res.json(filtered.map(w => ({
       ...w,
       hours_used: hoursMap[w.worker_id] || 0,
-      hours_remaining: w.max_daily_hours - (hoursMap[w.worker_id] || 0),
+      hours_remaining: (w.max_daily_hours || 8) - (hoursMap[w.worker_id] || 0),
       attendance_status: attendanceMap[w.worker_id] || 'not_marked'
     })));
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Database error" });
+    console.error("getWorkersForSchedule error:", err);
+    res.status(500).json({ error: "Database error: " + err.message });
   }
 };

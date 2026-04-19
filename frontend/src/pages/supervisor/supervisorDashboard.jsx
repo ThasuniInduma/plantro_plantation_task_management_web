@@ -18,6 +18,8 @@ export default function SupervisorDashboard() {
   const [upcoming,     setUpcoming]     = useState([]);
   const [loading,      setLoading]      = useState(true);
   const [fields,       setFields]       = useState([]);
+  const [notifications, setNotifications] = useState([]);
+  const [showNotifications, setShowNotifications] = useState(false);
 
   const getToken = () => localStorage.getItem('token');
   const getHeaders = () => ({
@@ -28,14 +30,18 @@ export default function SupervisorDashboard() {
   const fetchAll = useCallback(async () => {
     setLoading(true);
     try {
-      const [tRes, uRes] = await Promise.all([
+      const [tRes, uRes, nRes] = await Promise.all([
         fetch(`${BASE}/schedule/today`,          { headers: getHeaders(), credentials: 'include' }),
-        fetch(`${BASE}/schedule/upcoming?days=7`, { headers: getHeaders(), credentials: 'include' })
+        fetch(`${BASE}/schedule/upcoming?days=7`, { headers: getHeaders(), credentials: 'include' }),
+        fetch(`${BASE}/notifications`,            { headers: getHeaders(), credentials: 'include' })
       ]);
       const tData = await tRes.json();
       const uData = await uRes.json();
+      const nData = await nRes.json();
+      
       setTodayFields(Array.isArray(tData) ? tData : []);
       setUpcoming(Array.isArray(uData) ? uData : []);
+      setNotifications(Array.isArray(nData) ? nData : []);
 
       if (Array.isArray(tData)) {
         setFields(tData.map(f => ({
@@ -112,10 +118,67 @@ export default function SupervisorDashboard() {
               })}
             </p>
           </div>
-          <button className="supdb-refresh-btn" onClick={fetchAll}>
-            <FiRefreshCw size={15} /> Refresh
-          </button>
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+            <button 
+              className="supdb-refresh-btn" 
+              style={{ position: 'relative' }}
+              onClick={() => setShowNotifications(!showNotifications)}
+            >
+              🔔
+              {notifications.length > 0 && (
+                <span style={{
+                  position: 'absolute',
+                  top: '-5px',
+                  right: '-5px',
+                  background: '#ef4444',
+                  color: 'white',
+                  borderRadius: '50%',
+                  width: '20px',
+                  height: '20px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '12px',
+                  fontWeight: 'bold'
+                }}>
+                  {notifications.length}
+                </span>
+              )}
+            </button>
+            <button className="supdb-refresh-btn" onClick={fetchAll}>
+              <FiRefreshCw size={15} /> Refresh
+            </button>
+          </div>
         </header>
+
+        {showNotifications && notifications.length > 0 && (
+          <div style={{
+            background: '#f0fdf4',
+            border: '1px solid #86efac',
+            borderRadius: '8px',
+            padding: '12px',
+            margin: '12px',
+            maxHeight: '300px',
+            overflowY: 'auto'
+          }}>
+            <h3 style={{ margin: '0 0 12px 0', fontSize: '14px', fontWeight: '600' }}>
+              Notifications ({notifications.length})
+            </h3>
+            {notifications.map((notif, idx) => (
+              <div key={idx} style={{
+                padding: '8px',
+                background: 'white',
+                borderRadius: '4px',
+                marginBottom: '8px',
+                borderLeft: '3px solid #10b981',
+                fontSize: '13px'
+              }}>
+                <strong>{notif.title}</strong>
+                <p style={{ margin: '4px 0 0 0', color: '#666' }}>{notif.message}</p>
+              </div>
+            ))}
+          </div>
+        )}
 
         <div className="supdb-body">
 

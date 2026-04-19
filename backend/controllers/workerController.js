@@ -272,68 +272,62 @@ export const updateTaskStatus = async (req, res) => {
     if (!assignment)             return res.status(404).json({ message: "Assignment not found" });
     if (assignment.worker_id !== workerId) return res.status(403).json({ message: "Not your assignment" });
 
-    if (status === "in_progress" || status === "completed") {
-      const [siblings] = await db.query(
-        `SELECT assignment_id FROM task_assignments
-         WHERE task_id       = ?
-           AND field_id      = ?
-           AND assigned_date = ?
-           AND worker_id    != ?
-           AND status IN ('in_progress','completed')`,
-        [assignment.task_id, assignment.field_id, assignment.assigned_date, workerId]
-      );
-      if (siblings.length > 0) {
-        return res.status(409).json({
-          message: "Another worker has already claimed this task. Only one worker completes it.",
-        });
-      }
-    }
-
     if (status === "completed") {
-      // Mark all siblings completed too
+      // Mark ONLY this worker's assignment completed
       await db.query(
         `UPDATE task_assignments
          SET status = 'completed', completed_at = CURDATE(), verified_by = NULL, verified_at = NULL
-         WHERE task_id = ? AND field_id = ? AND assigned_date = ?`,
+         WHERE assignment_id = ?`,
+        [assignmentId]
+      );
+
+      // Check if ALL assignments for this task are now completed
+      const [allAssignments] = await db.query(
+        `SELECT COUNT(*) as total, 
+                SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed
+         FROM task_assignments
+         WHERE task_id = ? AND field_id = ? AND assigned_date = ? AND status IN ('pending','in_progress','completed')`,
         [assignment.task_id, assignment.field_id, assignment.assigned_date]
       );
 
-      // Mark schedule for verification
-      await db.query(
-        `UPDATE field_task_schedule SET pending_verification = 1
-         WHERE task_id = ? AND field_id = ?`,
-        [assignment.task_id, assignment.field_id]
-      );
+      const allCompleted = allAssignments[0].total > 0 && allAssignments[0].total === allAssignments[0].completed;
 
-      // Notify supervisor
-      const [[sup]] = await db.query(
-        `SELECT s.user_id, u.full_name, u.email
-         FROM supervisors s
-         JOIN users u ON s.user_id = u.user_id
-         WHERE s.field_id = ?`,
-        [assignment.field_id]
-      );
-
-      if (sup) {
-        const [[worker]]   = await db.query(
-          `SELECT u.full_name FROM users u JOIN workers w ON w.user_id = u.user_id WHERE w.worker_id = ?`,
-          [workerId]
-        );
-        const [[taskInfo]] = await db.query(
-          `SELECT t.task_name, f.field_name FROM tasks t, fields f WHERE t.task_id = ? AND f.field_id = ?`,
-          [assignment.task_id, assignment.field_id]
-        );
-
+      // Mark schedule for verification ONLY if all workers completed
+      if (allCompleted) {
         await db.query(
-          `INSERT INTO notifications (user_id, title, message, type, reference_id)
-           VALUES (?, ?, ?, 'task_completed', ?)`,
-          [
-            sup.user_id,
-            "✅ Task Ready for Verification",
-            `${worker?.full_name || "A worker"} has completed "${taskInfo?.task_name}" at ${taskInfo?.field_name}. Please verify.`,
-            assignmentId,
-          ]
+          `UPDATE field_task_schedule SET pending_verification = 1, pending_assignment_id = ?
+           WHERE task_id = ? AND field_id = ?`,
+          [assignmentId, assignment.task_id, assignment.field_id]
         );
+      }
+
+      // Notify supervisor only when all workers are done
+      if (allCompleted) {
+        const [[sup]] = await db.query(
+          `SELECT s.user_id, u.full_name, u.email
+           FROM supervisors s
+           JOIN users u ON s.user_id = u.user_id
+           WHERE s.field_id = ?`,
+          [assignment.field_id]
+        );
+
+        if (sup) {
+          const [[taskInfo]] = await db.query(
+            `SELECT t.task_name, f.field_name FROM tasks t, fields f WHERE t.task_id = ? AND f.field_id = ?`,
+            [assignment.task_id, assignment.field_id]
+          );
+
+          await db.query(
+            `INSERT INTO notifications (user_id, title, message, type, reference_id)
+             VALUES (?, ?, ?, 'task_completed', ?)`,
+            [
+              sup.user_id,
+              "✅ Task Ready for Verification",
+              `All workers completed "${taskInfo?.task_name}" at ${taskInfo?.field_name}. Please verify.`,
+              assignmentId,
+            ]
+          );
+        }
       }
     } else {
       await db.query(

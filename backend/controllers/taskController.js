@@ -114,12 +114,28 @@ export const updateCropTask = async (req, res) => {
   try {
     const { cropTaskId } = req.params;
     const { frequency_days, estimated_man_hours } = req.body;
+
+    // 1. Update crop_tasks as before
     await db.query(
       `UPDATE crop_tasks 
        SET frequency_days = ?, estimated_man_hours = ? 
        WHERE crop_task_id = ?`,
       [frequency_days, estimated_man_hours, cropTaskId]
     );
+
+    // 2. Recalculate next_due_date for pending schedules using this crop_task
+    //    Only update schedules that haven't been completed yet (pending_verification=0)
+    //    Recalculate as: last_done_date + frequency_days
+    //    If last_done_date is NULL, leave next_due_date as-is (it's an initial schedule)
+    await db.query(
+      `UPDATE field_task_schedule
+       SET next_due_date = DATE_ADD(last_done_date, INTERVAL ? DAY)
+       WHERE crop_task_id = ?
+         AND last_done_date IS NOT NULL
+         AND pending_verification = 0`,
+      [frequency_days, cropTaskId]
+    );
+
     console.log("updateCropTask cropTaskId:", cropTaskId);
     res.json({
       cropTaskId: Number(cropTaskId),
