@@ -9,6 +9,7 @@ import {
   getWorkersForSupervisor,
   getWorkerProfile,        // ← add
   updateWorkerProfile,     // ← add
+  getWorkerTasksByDate,
 } from "../controllers/workerController.js";
 import { authenticate } from "../middleware/authMiddleware.js";
 import { authorize } from "../middleware/authorize.js";
@@ -27,6 +28,7 @@ router.put("/profile", authorize("worker"), updateWorkerProfile);
 
 // Worker tasks
 router.get("/tasks",                        authorize("worker"), getWorkerTasks);
+router.get("/tasks-by-date",                 authorize("worker"), getWorkerTasksByDate);
 router.put("/tasks/:assignmentId/status",   authorize("worker"), updateTaskStatus);
 router.post("/tasks/:taskId/postpone",      authorize("worker"), postponeTask);
 

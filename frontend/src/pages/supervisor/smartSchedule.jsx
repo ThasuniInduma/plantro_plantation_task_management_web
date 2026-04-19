@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import SideNav from '../../components/SideNav';
+import Calendar from 'react-calendar';
+import 'react-calendar/dist/Calendar.css';
 import {
   FiCalendar, FiCheckCircle, FiClock, FiUser,
   FiAlertCircle, FiChevronRight, FiMapPin,
   FiTrendingUp, FiThumbsUp, FiThumbsDown,
   FiSkipForward, FiRefreshCw, FiX, FiCheck,
-  FiUsers, FiArrowRight
+  FiUsers, FiArrowRight, FiTrash2, FiPlay, FiSquare
 } from 'react-icons/fi';
 import './SmartSchedule.css';
 
@@ -17,6 +19,10 @@ export default function SmartSchedule() {
   const [upcoming,       setUpcoming]       = useState([]);
   const [loading,        setLoading]        = useState(true);
   const [activeView,     setActiveView]     = useState('today');
+
+  // Calendar
+  const [selectedDate,   setSelectedDate]   = useState(new Date());
+  const [tasksForDate,   setTasksForDate]   = useState([]);
 
   // Selected task for detail panel
   const [selectedTask,   setSelectedTask]   = useState(null);
@@ -33,11 +39,20 @@ export default function SmartSchedule() {
   const [verifyAssign,   setVerifyAssign]   = useState(null);
   const [rejectReason,   setRejectReason]   = useState('');
   const [verifying,      setVerifying]      = useState(false);
+  const [expectedHours, setExpectedHours] = useState(2); // default per worker
+  const [deadlineTime,   setDeadlineTime]   = useState('');
 
   const headers = {
     'Content-Type': 'application/json'
   };
-  const today   = new Date().toISOString().split('T')[0];
+  const getLocalDate = () => {
+  const now = new Date();
+  return now.getFullYear() + '-' +
+    String(now.getMonth() + 1).padStart(2, '0') + '-' +
+    String(now.getDate()).padStart(2, '0');
+};
+
+const today = getLocalDate();
   const getToken = () => localStorage.getItem('token');
   const getHeaders = () => ({
   'Content-Type': 'application/json',
@@ -45,7 +60,7 @@ export default function SmartSchedule() {
 });
 
 
-  useEffect(() => { fetchAll(); }, []);
+  useEffect(() => { fetchAll(); fetchTasksForDate(selectedDate); }, []);
 
   const fetchAll = async () => {
     setLoading(true);
@@ -68,6 +83,24 @@ export default function SmartSchedule() {
     finally { setLoading(false); }
   };
 
+  const fetchTasksForDate = async (date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const dateStr = `${year}-${month}-${day}`;
+    try {
+      const res = await fetch(`${BASE}/schedule/by-date?date=${dateStr}`, {
+        headers: getHeaders(),
+        credentials: 'include'
+      });
+      const data = await res.json();
+      setTasksForDate(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error(err);
+      setTasksForDate([]);
+    }
+  };
+
   // Open a task in the right panel
   const openTask = async (task, field) => {
     setSelectedTask(task);
@@ -78,7 +111,9 @@ export default function SmartSchedule() {
     setRejectReason('');
 
     // If needs verify, pre-select the pending assignment
-    const pending = task.assignments?.find(a => a.status === 'completed' && !a.verified_at);
+    const pending = task.assignments?.find(
+  a => a.assignment_id === task.pending_assignment_id
+);
     if (pending) {
       setVerifyAssign(pending);
       setVerifyMode(true);
@@ -86,15 +121,15 @@ export default function SmartSchedule() {
 
     // Load workers for assignment
     if (!task.is_fully_assigned && !task.needs_verification) {
-      await loadWorkers(field.field_id);
+      await loadWorkers(field.field_id, task.task_id);
     }
   };
 
-  const loadWorkers = async (fieldId) => {
+  const loadWorkers = async (fieldId, taskId) => {
     setLoadingWorkers(true);
     try {
       const res = await fetch(
-  `${BASE}/schedule/workers-available?date=${today}&field_id=${fieldId}&task_id=${selectedTask.task_id}`,
+  `${BASE}/schedule/workers-available?date=${today}&field_id=${fieldId}&task_id=${taskId}`,
   {
     headers: getHeaders(),
     credentials: 'include'
@@ -121,13 +156,16 @@ const handleAssign = async () => {
           body: JSON.stringify({
             schedule_id: selectedTask.schedule_id,
             worker_user_id: Number(workerId),
-            date: today
+            date: today,
+            expected_hours_per_worker: expectedHours,
+            deadline_time: deadlineTime || null
           })
         }).then(r => r.json())
       )
     );
 
     await fetchAll();
+    await fetchTasksForDate(selectedDate);
     setSelectedWorkers([]);
     setSelectedTask(null);
 
@@ -137,16 +175,28 @@ const handleAssign = async () => {
     setAssigning(false);
   }
 };
+const workersNeeded =
+  selectedTask
+    ? Math.ceil(selectedTask.estimated_man_hours / (expectedHours || 1))
+    : 0;
+
+const assignedWorkers = selectedTask?.assignments?.length || 0;
+
+const remainingWorkers = Math.max(0, workersNeeded - assignedWorkers);
 
   // Verify / Reject
   const handleVerify = async (action) => {
-    if (!selectedTask || !verifyAssign) return;
+    if (!selectedTask?.schedule_id || !verifyAssign?.assignment_id) {
+    alert("Missing verification data");
+    return;
+  }
     setVerifying(true);
     try {
       const res = await fetch(`${BASE}/schedule/verify`, {
         method: 'POST', headers: getHeaders(), credentials: 'include',
         body: JSON.stringify({
-          schedule_id:   selectedTask.schedule_id,
+          task_id: selectedTask.task_id,
+field_id: selectedTask.field_id,
           assignment_id: verifyAssign.assignment_id,
           action,
           reject_reason: rejectReason
@@ -166,13 +216,45 @@ const handleAssign = async () => {
   const handleDismiss = async () => {
     if (!window.confirm('Postpone this task to tomorrow?')) return;
     try {
-      await fetch(`${BASE}/schedule/dismiss`, {
+      await fetch(`${BASE}/schedule/pause`, {
         method: 'POST', headers: getHeaders(), credentials: 'include',
         body: JSON.stringify({ schedule_id: selectedTask.schedule_id })
       });
       await fetchAll();
+      await fetchTasksForDate(selectedDate);
       setSelectedTask(null);
     } catch { alert('Failed.'); }
+  };
+
+  // Unassign
+  const handleUnassign = async (assignmentId) => {
+    if (!confirm('Unassign this worker?')) return;
+    try {
+      await fetch(`${BASE}/schedule/unassign`, {
+        method: 'POST',
+        headers: getHeaders(),
+        credentials: 'include',
+        body: JSON.stringify({ assignment_id: assignmentId })
+      });
+      await fetchTasksForDate(selectedDate);
+    } catch (err) {
+      alert('Failed to unassign');
+    }
+  };
+
+  // Update status
+  const handleUpdateStatus = async (assignmentId, status) => {
+    try {
+      await fetch(`${BASE}/schedule/update-status`, {
+        method: 'POST',
+        headers: getHeaders(),
+        credentials: 'include',
+        body: JSON.stringify({ assignment_id: assignmentId, status })
+      });
+      await fetchTasksForDate(selectedDate);
+    } catch (err) {
+      alert('Failed to update status');
+    }
   };
 
   // Stats
@@ -237,15 +319,15 @@ const handleAssign = async () => {
           </div>
 
           {/* View toggle */}
-          <div className="ss-toggle-row">
-            <button className={`ss-tog ${activeView==='today'?'on':''}`}
-              onClick={() => { setActiveView('today'); setSelectedTask(null); }}>
-              <FiCalendar size={14}/> Today
-            </button>
-            <button className={`ss-tog ${activeView==='upcoming'?'on':''}`}
-              onClick={() => { setActiveView('upcoming'); setSelectedTask(null); }}>
-              <FiTrendingUp size={14}/> Next 7 Days
-            </button>
+          <div className="ss-calendar-container">
+            <Calendar
+              onChange={(date) => {
+                setSelectedDate(date);
+                fetchTasksForDate(date);
+                setSelectedTask(null);
+              }}
+              value={selectedDate}
+            />
           </div>
 
           {/* Main content — two-panel when task selected */}
@@ -255,116 +337,81 @@ const handleAssign = async () => {
             <div className="ss-list-panel">
               {loading ? (
                 <div className="ss-empty"><div className="ss-spin"/><p>Loading...</p></div>
-              ) : activeView === 'today' ? (
-                todayFields.length === 0 ? (
-                  <div className="ss-empty">
-                    <FiCheckCircle size={40}/>
-                    <h3>All clear!</h3>
-                    <p>No tasks due today.</p>
-                  </div>
-                ) : (
-                  todayFields.map(field => (
-                    <div key={field.field_id} className="ss-field-section">
-                      {/* Field label */}
-                      <div className="ss-field-label">
-                        <FiMapPin size={13}/>
-                        <span>{field.field_name}</span>
-                        <span className="ss-crop-pill">{field.crop_name}</span>
-                        <span className="ss-loc-text">{field.location}</span>
-                      </div>
+              ) : tasksForDate.length === 0 ? (
+                <div className="ss-empty">
+                  <FiCheckCircle size={40}/>
+                  <h3>No tasks</h3>
+                  <p>No tasks for {selectedDate.toDateString()}.</p>
+                </div>
+              ) : (
+                tasksForDate.map(field => (
+                  <div key={field.field_id} className="ss-field-section">
+                    {/* Field label */}
+                    <div className="ss-field-label">
+                      <FiMapPin size={13}/>
+                      <span>{field.field_name}</span>
+                      <span className="ss-crop-pill">{field.crop_name}</span>
+                      <span className="ss-loc-text">{field.location}</span>
+                    </div>
 
-                      {/* Task cards */}
-                      <div className="ss-task-cards">
-                        {field.due_tasks.map(task => {
-                          const isSelected = selectedTask?.schedule_id === task.schedule_id;
-                          const hoursLeft  = Math.max(0,
-                            task.estimated_man_hours - task.total_hours_assigned
-                          );
-                          const pct = Math.min(100,
-                            (task.total_hours_assigned / task.estimated_man_hours) * 100
-                          );
+                    {/* Task cards */}
+                    <div className="ss-task-cards">
+                      {field.due_tasks.map(task => {
+                        const isSelected = selectedTask?.schedule_id === task.schedule_id;
+                        const hoursLeft  = Math.max(0,
+                          task.estimated_man_hours - task.total_hours_assigned
+                        );
+                        const pct = Math.min(100,
+                          (task.total_hours_assigned / task.estimated_man_hours) * 100
+                        );
 
-                          return (
-                            <div
-                              key={task.schedule_id}
-                              className={`ss-task-card ${isSelected ? 'selected' : ''} ${task.needs_verification ? 'verify-card' : ''}`}
-                              onClick={() => openTask(task, field)}
-                            >
-                              {/* Left accent */}
-                              <div className="ss-card-accent"
-                                style={{ background: urgencyColor(task) }}/>
+                        return (
+                          <div
+                            key={task.schedule_id}
+                            className={`ss-task-card ${isSelected ? 'selected' : ''} ${task.needs_verification ? 'verify-card' : ''}`}
+                            onClick={() => openTask(task, field)}
+                          >
+                            {/* Left accent */}
+                            <div className="ss-card-accent"
+                              style={{ background: urgencyColor(task) }}/>
 
-                              <div className="ss-card-body">
-                                <div className="ss-card-top">
-                                  <span className="ss-card-name">{task.task_name}</span>
-                                  <span className="ss-card-badge"
-                                    style={{ background: urgencyColor(task) + '22',
-                                             color: urgencyColor(task) }}>
-                                    {urgencyLabel(task)}
+                            <div className="ss-card-body">
+                              <div className="ss-card-top">
+                                <span className="ss-card-name">{task.task_name}</span>
+                                <span className="ss-card-badge"
+                                  style={{ background: urgencyColor(task) + '22',
+                                           color: urgencyColor(task) }}>
+                                  {urgencyLabel(task)}
+                                </span>
+                              </div>
+
+                              {/* Progress bar */}
+                              <div className="ss-card-bar">
+                                <div className="ss-card-bar-fill"
+                                  style={{ width: `${pct}%`,
+                                           background: task.is_fully_assigned ? '#10b981' : '#3b82f6' }}/>
+                              </div>
+
+                              <div className="ss-card-foot">
+                                <span className="ss-card-meta">
+                                  <FiClock size={11}/>
+                                  {task.total_hours_assigned}/{task.estimated_man_hours}h
+                                  {hoursLeft > 0 && ` · ${hoursLeft}h needed`}
+                                </span>
+                                {task.assignments?.length > 0 && (
+                                  <span className="ss-card-workers">
+                                    <FiUsers size={11}/> {task.assignments.length}
                                   </span>
-                                </div>
-
-                                {/* Progress bar */}
-                                <div className="ss-card-bar">
-                                  <div className="ss-card-bar-fill"
-                                    style={{ width: `${pct}%`,
-                                             background: task.is_fully_assigned ? '#10b981' : '#3b82f6' }}/>
-                                </div>
-
-                                <div className="ss-card-foot">
-                                  <span className="ss-card-meta">
-                                    <FiClock size={11}/>
-                                    {task.total_hours_assigned}/{task.estimated_man_hours}h
-                                    {hoursLeft > 0 && ` · ${hoursLeft}h needed`}
-                                  </span>
-                                  {task.assignments?.length > 0 && (
-                                    <span className="ss-card-workers">
-                                      <FiUsers size={11}/> {task.assignments.length}
-                                    </span>
-                                  )}
-                                  <FiChevronRight size={14} className="ss-card-arrow"/>
-                                </div>
+                                )}
+                                <FiChevronRight size={14} className="ss-card-arrow"/>
                               </div>
                             </div>
-                          );
-                        })}
-                      </div>
+                          </div>
+                        );
+                      })}
                     </div>
-                  ))
-                )
-              ) : (
-                /* Upcoming */
-                upcoming.length === 0 ? (
-                  <div className="ss-empty">
-                    <FiCalendar size={36}/><p>No tasks in next 7 days</p>
                   </div>
-                ) : (
-                  <div className="ss-upcoming-list">
-                    {upcoming.map(row => (
-                      <div key={row.schedule_id} className="ss-up-row">
-                        <div className="ss-up-date">
-                          <strong>
-                            {new Date(row.next_due_date)
-                              .toLocaleDateString('en-US',{month:'short',day:'numeric'})}
-                          </strong>
-                          <span>
-                            {row.days_until_due === 0 ? 'Today' :
-                             row.days_until_due === 1 ? 'Tomorrow' :
-                             `In ${row.days_until_due}d`}
-                          </span>
-                        </div>
-                        <div className="ss-up-info">
-                          <strong>{row.task_name}</strong>
-                          <p>{row.field_name} · {row.crop_name}</p>
-                        </div>
-                        <div className="ss-up-meta">
-                          <span><FiClock size={11}/> {row.estimated_man_hours}h</span>
-                          <span>Every {row.frequency_days}d</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )
+                ))
               )}
             </div>
 
@@ -423,6 +470,21 @@ const handleAssign = async () => {
                             <p className="ss-wchip-name">{a.worker_name}</p>
                             <p className="ss-wchip-hours">{a.expected_hours}h</p>
                           </div>
+                          <div className="ss-wchip-actions">
+                            {a.status === 'pending' && (
+                              <button onClick={() => handleUpdateStatus(a.assignment_id, 'in_progress')} title="Start">
+                                <FiPlay size={12}/>
+                              </button>
+                            )}
+                            {a.status === 'in_progress' && (
+                              <button onClick={() => handleUpdateStatus(a.assignment_id, 'completed')} title="Complete">
+                                <FiSquare size={12}/>
+                              </button>
+                            )}
+                            <button onClick={() => handleUnassign(a.assignment_id)} title="Unassign">
+                              <FiTrash2 size={12}/>
+                            </button>
+                          </div>
                           <span className="ss-wchip-status"
                             style={{
                               background:
@@ -480,11 +542,55 @@ const handleAssign = async () => {
                 {!selectedTask.needs_verification && !selectedTask.is_fully_assigned && (
                   <div className="ss-assign-section">
                     <p className="ss-section-label">
-                      Assign a Worker
-                      <span className="ss-hours-needed">
-                        {Math.max(0, selectedTask.estimated_man_hours - selectedTask.total_hours_assigned)}h still needed
-                      </span>
-                    </p>
+                      Assign a Worker</p>
+                      <div className="ss-assignment-meta">
+    
+    <div className="ss-hours-input">
+  <label>Expected hours per worker</label>
+  <input
+    type="number"
+    min="1"
+    step="1"
+    value={expectedHours}
+    onChange={(e) => {
+      const val = parseInt(e.target.value, 10);
+      setExpectedHours(isNaN(val) ? 1 : val);
+    }}
+  />
+</div>
+
+    <div className="ss-hours-input">
+  <label>Deadline Time</label>
+  <input
+    type="time"
+    value={deadlineTime}
+    onChange={(e) => setDeadlineTime(e.target.value)}
+  />
+</div>
+
+    <div className="ss-assignment-stats">
+      <div className="ss-detail-row">
+        <span>Workers needed</span>
+        <strong>
+          {workersNeeded} worker{workersNeeded !== 1 ? 's' : ''}
+        </strong>
+      </div>
+
+      <div className="ss-detail-row">
+        <span>Already assigned</span>
+        <strong>{assignedWorkers}</strong>
+      </div>
+
+      <div className="ss-detail-row">
+        <span>Remaining workers</span>
+        <strong style={{ color: remainingWorkers > 0 ? '#f59e0b' : '#10b981' }}>
+          {remainingWorkers}
+        </strong>
+      </div>
+    </div></div>
+                          
+                          
+                          
 
                     {loadingWorkers ? (
                       <div className="ss-workers-loading">

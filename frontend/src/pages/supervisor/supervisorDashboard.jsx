@@ -2,67 +2,51 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   FiCalendar, FiCheckCircle, FiClock, FiAlertCircle,
   FiTrendingUp, FiMapPin, FiUsers, FiRefreshCw,
-  FiArrowRight, FiChevronRight
 } from 'react-icons/fi';
 import './SupervisorDashboard.css';
 
 const BASE = 'http://localhost:8081/api';
 
 export default function SupervisorDashboard() {
-
   const [harvestModal, setHarvestModal] = useState(false);
+  const [harvestData, setHarvestData] = useState({
+    field_id: "", quantity: "", unit: "kg", harvest_date: ""
+  });
 
-const [harvestData, setHarvestData] = useState({
-  field_id: "",
-  worker_id: "",
-  crop_id: "",
-  task_id: "",
-  quantity: "",
-  unit: "kg",
-  harvest_date: ""
-});
+  const [taskView,     setTaskView]     = useState('today');
+  const [todayFields,  setTodayFields]  = useState([]);
+  const [upcoming,     setUpcoming]     = useState([]);
+  const [loading,      setLoading]      = useState(true);
+  const [fields,       setFields]       = useState([]);
 
-  const [activeTab, setActiveTab] = useState('dashboard');
-  const [taskView, setTaskView] = useState('today'); // 'today' | 'upcoming'
-
-  const [todayFields, setTodayFields] = useState([]);
-  const [upcoming, setUpcoming] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  // Field overview stats
-  const [fields, setFields] = useState([]);
-
-  const headers = { 'Content-Type': 'application/json' };
   const getToken = () => localStorage.getItem('token');
+  const getHeaders = () => ({
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${getToken()}`
+  });
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
     try {
-      const token = getToken();
-      const headers = {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`
-    };
       const [tRes, uRes] = await Promise.all([
-        fetch(`${BASE}/schedule/today`, { headers, credentials: 'include' }),
-        fetch(`${BASE}/schedule/upcoming?days=7`, { headers, credentials: 'include' })
+        fetch(`${BASE}/schedule/today`,          { headers: getHeaders(), credentials: 'include' }),
+        fetch(`${BASE}/schedule/upcoming?days=7`, { headers: getHeaders(), credentials: 'include' })
       ]);
       const tData = await tRes.json();
       const uData = await uRes.json();
       setTodayFields(Array.isArray(tData) ? tData : []);
       setUpcoming(Array.isArray(uData) ? uData : []);
 
-      // Extract unique fields for overview
       if (Array.isArray(tData)) {
         setFields(tData.map(f => ({
-          field_id: f.field_id,
-          field_name: f.field_name,
-          location: f.location,
-          area: f.area,
-          crop_name: f.crop_name,
-          total_tasks: f.due_tasks?.length || 0,
+          field_id:       f.field_id,
+          field_name:     f.field_name,
+          location:       f.location,
+          area:           f.area,
+          crop_name:      f.crop_name,
+          total_tasks:    f.due_tasks?.length || 0,
           assigned_tasks: f.due_tasks?.filter(t => (t.assignments?.length || 0) > 0).length || 0,
-          needs_verify: f.due_tasks?.filter(t => t.needs_verification).length || 0,
+          needs_verify:   f.due_tasks?.filter(t => t.needs_verification).length || 0,
         })));
       }
     } catch (err) {
@@ -74,76 +58,51 @@ const [harvestData, setHarvestData] = useState({
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
-  // Stats
-  const allTasks = todayFields.flatMap(f => f.due_tasks || []);
-  const totalDue = allTasks.length;
+  const allTasks      = todayFields.flatMap(f => f.due_tasks || []);
+  const totalDue      = allTasks.length;
   const fullyAssigned = allTasks.filter(t => t.is_fully_assigned).length;
-  const needsVerify = allTasks.filter(t => t.needs_verification).length;
-  const overdue = allTasks.filter(t => (t.days_overdue || 0) > 0 && !t.needs_verification).length;
+  const needsVerify   = allTasks.filter(t => t.needs_verification).length;
+  const overdue       = allTasks.filter(t => (t.days_overdue || 0) > 0 && !t.needs_verification).length;
 
   const urgencyColor = (task) => {
-    if (task.needs_verification) return '#8b5cf6';
-    if ((task.days_overdue || 0) > 7) return '#ef4444';
-    if ((task.days_overdue || 0) > 0) return '#f59e0b';
+    if (task.needs_verification)         return '#8b5cf6';
+    if ((task.days_overdue || 0) > 7)    return '#ef4444';
+    if ((task.days_overdue || 0) > 0)    return '#f59e0b';
     return '#10b981';
   };
-
   const urgencyLabel = (task) => {
-    if (task.needs_verification) return 'Verify';
-    if ((task.days_overdue || 0) > 7) return `${task.days_overdue}d overdue`;
-    if ((task.days_overdue || 0) > 0) return `${task.days_overdue}d late`;
+    if (task.needs_verification)         return 'Verify';
+    if ((task.days_overdue || 0) > 7)    return `${task.days_overdue}d overdue`;
+    if ((task.days_overdue || 0) > 0)    return `${task.days_overdue}d late`;
     return 'Today';
   };
 
-  const handleHarvestChange = (e) => {
-  setHarvestData({
-    ...harvestData,
-    [e.target.name]: e.target.value
-  });
-};
-const addHarvest = async () => {
-  try {
-    const token = getToken();
+  const handleHarvestChange = (e) =>
+    setHarvestData({ ...harvestData, [e.target.name]: e.target.value });
 
-    const res = await fetch(`${BASE}/harvest/add`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`
-      },
-      body: JSON.stringify(harvestData)
-    });
-
-    const data = await res.json();
-
-    if (data.success) {
-      alert("Harvest added successfully!");
-      setHarvestModal(false);
-
-      // reset form
-      setHarvestData({
-        field_id: "",
-        worker_id: "",
-        crop_id: "",
-        task_id: "",
-        quantity: "",
-        unit: "kg",
-        harvest_date: ""
+  const addHarvest = async () => {
+    try {
+      const res = await fetch(`${BASE}/harvest/add`, {
+        method: "POST",
+        headers: getHeaders(),
+        body: JSON.stringify(harvestData)
       });
-    } else {
-      alert(data.message || "Failed to add harvest");
+      const data = await res.json();
+      if (data.success) {
+        alert("Harvest added successfully!");
+        setHarvestModal(false);
+        setHarvestData({ field_id: "", quantity: "", unit: "kg", harvest_date: "" });
+      } else {
+        alert(data.message || "Failed to add harvest");
+      }
+    } catch (err) {
+      console.error(err);
     }
-  } catch (err) {
-    console.error(err);
-  }
-};
+  };
 
   return (
     <div className="supdb-layout">
-
-
       <div className="supdb-main">
-        {/* Header */}
         <header className="supdb-header">
           <div>
             <h1 className="supdb-title">Supervisor Dashboard</h1>
@@ -163,10 +122,10 @@ const addHarvest = async () => {
           {/* Stats Row */}
           <div className="supdb-stats">
             {[
-              { icon: <FiCalendar size={18} />, label: 'Due Today', val: totalDue, cls: 'due' },
-              { icon: <FiUsers size={18} />, label: 'Assigned', val: fullyAssigned, cls: 'ok' },
-              { icon: <FiCheckCircle size={18} />, label: 'Needs Verify', val: needsVerify, cls: 'verify' },
-              { icon: <FiAlertCircle size={18} />, label: 'Overdue', val: overdue, cls: 'over' },
+              { icon: <FiCalendar size={18} />, label: 'Due Today',    val: totalDue,      cls: 'due'    },
+              { icon: <FiUsers size={18} />,    label: 'Assigned',     val: fullyAssigned, cls: 'ok'     },
+              { icon: <FiCheckCircle size={18}/>,label: 'Needs Verify', val: needsVerify,   cls: 'verify' },
+              { icon: <FiAlertCircle size={18}/>, label: 'Overdue',    val: overdue,       cls: 'over'   },
             ].map(s => (
               <div key={s.label} className="supdb-stat">
                 <div className={`supdb-stat-ic ${s.cls}`}>{s.icon}</div>
@@ -178,10 +137,8 @@ const addHarvest = async () => {
             ))}
           </div>
 
-          {/* Field Overview Cards */}
-          <div className="supdb-section-title">
-            <FiMapPin size={16} /> Fields Overview
-          </div>
+          {/* Field Overview */}
+          <div className="supdb-section-title"><FiMapPin size={16} /> Fields Overview</div>
           <div className="supdb-fields-grid">
             {loading ? (
               <div className="supdb-loading"><div className="supdb-spin" /><p>Loading...</p></div>
@@ -213,10 +170,8 @@ const addHarvest = async () => {
                 {f.total_tasks > 0 && (
                   <div className="supdb-field-progress">
                     <div className="supdb-progress-track">
-                      <div
-                        className="supdb-progress-fill"
-                        style={{ width: `${(f.assigned_tasks / f.total_tasks) * 100}%` }}
-                      />
+                      <div className="supdb-progress-fill"
+                        style={{ width: `${(f.assigned_tasks / f.total_tasks) * 100}%` }} />
                     </div>
                     <span>{Math.round((f.assigned_tasks / f.total_tasks) * 100)}% assigned</span>
                   </div>
@@ -225,88 +180,51 @@ const addHarvest = async () => {
             ))}
           </div>
 
-          {/* Harvest Action Card */}
-<div className="supdb-section-title">
-  🌾 Harvest Management
-</div>
+          {/* Harvest Management */}
+          <div className="supdb-section-title">🌾 Harvest Management</div>
+          <div className="supdb-harvest-card">
+            <div className="supdb-harvest-info">
+              <h3>Record Harvest</h3>
+              <p>Add harvest of the field</p>
+            </div>
+            <button className="supdb-harvest-btn" onClick={() => setHarvestModal(true)}>
+              + Add Harvest
+            </button>
+          </div>
 
-<div className="supdb-harvest-card">
-  <div className="supdb-harvest-info">
-    <h3>Record Harvest</h3>
-    <p>Add harvest of the field</p>
-  </div>
-
-  <button
-    className="supdb-harvest-btn"
-    onClick={() => setHarvestModal(true)}
-  >
-    + Add Harvest
-  </button>
-</div>
-{harvestModal && (
-  <div className="supdb-modal-backdrop">
-    <div className="supdb-modal">
-
-      <h3>Add Harvest Record</h3>
-
-      <div className="supdb-form-grid">
-
-        <select name="field_id" onChange={handleHarvestChange}>
-  <option value="">Select Field</option>
-  {fields.map(f => (
-    <option key={f.field_id} value={f.field_id}>
-      {f.field_name}
-    </option>
-  ))}
-</select>
-
-
-<input
-  name="quantity"
-  type="number"
-  placeholder="Quantity"
-/>
-
-<select name="unit" onChange={handleHarvestChange}>
-  <option value="kg">kg</option>
-  <option value="liter">liter</option>
-  <option value="count">count</option>
-</select>
-
-<input
-  type="date"
-  name="harvest_date"
-  onChange={handleHarvestChange}
-/>
-
-      </div>
-
-      <div className="supdb-modal-actions">
-        <button onClick={() => setHarvestModal(false)}>
-          Cancel
-        </button>
-
-        <button className="primary" onClick={addHarvest}>
-          Save Harvest
-        </button>
-      </div>
-
-    </div>
-  </div>
-)}
+          {harvestModal && (
+            <div className="supdb-modal-backdrop">
+              <div className="supdb-modal">
+                <h3>Add Harvest Record</h3>
+                <div className="supdb-form-grid">
+                  <select name="field_id" value={harvestData.field_id} onChange={handleHarvestChange}>
+                    <option value="">Select Field</option>
+                    {fields.map(f => (
+                      <option key={f.field_id} value={f.field_id}>{f.field_name}</option>
+                    ))}
+                  </select>
+                  <input name="quantity" type="number" placeholder="Quantity" value={harvestData.quantity} onChange={handleHarvestChange} />
+                  <select name="unit" value={harvestData.unit} onChange={handleHarvestChange}>
+                    <option value="kg">kg</option>
+                    <option value="liter">liter</option>
+                    <option value="count">count</option>
+                  </select>
+                  <input type="date" name="harvest_date" value={harvestData.harvest_date} onChange={handleHarvestChange} />
+                </div>
+                <div className="supdb-modal-actions">
+                  <button onClick={() => setHarvestModal(false)}>Cancel</button>
+                  <button className="primary" onClick={addHarvest}>Save Harvest</button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Task Toggle */}
           <div className="supdb-toggle-row">
-            <button
-              className={`supdb-tog ${taskView === 'today' ? 'on' : ''}`}
-              onClick={() => setTaskView('today')}
-            >
+            <button className={`supdb-tog ${taskView === 'today' ? 'on' : ''}`} onClick={() => setTaskView('today')}>
               <FiCalendar size={14} /> Today's Tasks
             </button>
-            <button
-              className={`supdb-tog ${taskView === 'upcoming' ? 'on' : ''}`}
-              onClick={() => setTaskView('upcoming')}
-            >
+            <button className={`supdb-tog ${taskView === 'upcoming' ? 'on' : ''}`} onClick={() => setTaskView('upcoming')}>
               <FiTrendingUp size={14} /> Upcoming (7 Days)
             </button>
           </div>
@@ -324,24 +242,14 @@ const addHarvest = async () => {
               <div className="supdb-task-list">
                 {todayFields.map(field =>
                   (field.due_tasks || []).map(task => (
-                    <div
-                      key={`${field.field_id}-${task.schedule_id}`}
-                      className={`supdb-task-row ${task.needs_verification ? 'verify-row' : ''}`}
-                    >
-                      <div
-                        className="supdb-task-accent"
-                        style={{ background: urgencyColor(task) }}
-                      />
+                    <div key={`${field.field_id}-${task.schedule_id}`}
+                      className={`supdb-task-row ${task.needs_verification ? 'verify-row' : ''}`}>
+                      <div className="supdb-task-accent" style={{ background: urgencyColor(task) }} />
                       <div className="supdb-task-info">
                         <div className="supdb-task-top">
                           <span className="supdb-task-name">{task.task_name}</span>
-                          <span
-                            className="supdb-task-badge"
-                            style={{
-                              background: urgencyColor(task) + '22',
-                              color: urgencyColor(task)
-                            }}
-                          >
+                          <span className="supdb-task-badge"
+                            style={{ background: urgencyColor(task) + '22', color: urgencyColor(task) }}>
                             {urgencyLabel(task)}
                           </span>
                         </div>
@@ -380,14 +288,11 @@ const addHarvest = async () => {
                   <div key={row.schedule_id} className="supdb-up-row">
                     <div className="supdb-up-date">
                       <strong>
-                        {new Date(row.next_due_date).toLocaleDateString('en-US', {
-                          month: 'short', day: 'numeric'
-                        })}
+                        {new Date(row.next_due_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                       </strong>
                       <span>
                         {row.days_until_due === 0 ? 'Today' :
-                          row.days_until_due === 1 ? 'Tomorrow' :
-                            `In ${row.days_until_due}d`}
+                         row.days_until_due === 1 ? 'Tomorrow' : `In ${row.days_until_due}d`}
                       </span>
                     </div>
                     <div className="supdb-up-info">

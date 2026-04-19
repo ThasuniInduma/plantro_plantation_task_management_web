@@ -306,12 +306,7 @@ const CropManagement = ({ logo }) => {
                         <h1 className="page-title">Crop Management</h1>
                         <p className="page-subtitle">Manage crops, define tasks, and view fields</p>
                     </div>
-                    <div className="header-actions">
-                        <button className="notification-btn">
-                            <FiBell />
-                            <span className="notification-badge">3</span>
-                        </button>
-                    </div>
+                    
                 </header>
 
                 <main className="content-body">

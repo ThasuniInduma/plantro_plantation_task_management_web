@@ -36,10 +36,6 @@ const WorkerDashboard = () => {
   const [showNotifications,  setShowNotifications]  = useState(false);
   const [currentTime,        setCurrentTime]        = useState(new Date());
 
-  const [taskReasons,     setTaskReasons]     = useState({});
-  const [showReasonInput, setShowReasonInput] = useState({});
-  const [completing,      setCompleting]      = useState({});
-
   const [selectedField, setSelectedField] = useState('');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -127,87 +123,6 @@ const WorkerDashboard = () => {
       setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
       setUnreadCount(0);
     } catch { /* silent */ }
-  };
-
-  // ── Start (in_progress) ───────────────────────────────────────────────
-  const handleStartTask = async (taskId) => {
-    setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: 'In Progress' } : t));
-    try {
-      await axios.put(
-        `${backendUrl}/api/worker/tasks/${taskId}/status`,
-        { status: 'in_progress' },
-        { withCredentials: true }
-      );
-      const task = tasks.find(t => t.id === taskId);
-      addNotif(`Started: "${task?.name}"`, 'info');
-    } catch (err) {
-      console.error(err);
-      addNotif('Failed to update status.', 'warning');
-      fetchTasks();
-    }
-  };
-
-  // ── Complete ──────────────────────────────────────────────────────────
-  const handleCompleteTask = async (task) => {
-    if (completing[task.id]) return;
-    setCompleting(prev => ({ ...prev, [task.id]: true }));
-
-    setTasks(prev => prev.map(t =>
-      t.id === task.id
-        ? { ...t, status: 'Completed', pending_verification: true }
-        : t
-    ));
-
-    try {
-      if (task.schedule_id) {
-        await axios.post(
-          `${backendUrl}/api/schedule/worker-complete`,
-          { assignment_id: task.id },
-          { withCredentials: true }
-        );
-      } else {
-        await axios.put(
-          `${backendUrl}/api/worker/tasks/${task.id}/status`,
-          { status: 'completed' },
-          { withCredentials: true }
-        );
-      }
-      addNotif(`"${task.name}" marked done — awaiting supervisor approval ✓`, 'success');
-      await fetchTasks();
-    } catch (err) {
-      console.error(err);
-      addNotif('Failed to mark complete.', 'warning');
-      fetchTasks();
-    } finally {
-      setCompleting(prev => ({ ...prev, [task.id]: false }));
-    }
-  };
-
-  // ── Postpone ──────────────────────────────────────────────────────────
-  const handleUnableToday = (task) =>
-    setShowReasonInput(prev => ({ ...prev, [task.id]: true }));
-
-  const submitReason = async (task) => {
-    const reason = taskReasons[task.id];
-    if (!reason?.trim()) { alert('Please enter a reason.'); return; }
-    try {
-      const { data } = await axios.post(
-        `${backendUrl}/api/worker/tasks/${task.id}/postpone`,
-        { reason },
-        { withCredentials: true }
-      );
-      if (data.success) {
-        addNotif(`"${task.name}" postponed to tomorrow.`, 'info');
-        setTaskReasons(prev => ({ ...prev, [task.id]: '' }));
-        setShowReasonInput(prev => ({ ...prev, [task.id]: false }));
-        await fetchTasks();
-      }
-    } catch { addNotif('Failed to postpone task.', 'warning'); }
-  };
-
-  const cancelReason = (id) => {
-    setShowReasonInput(prev => ({ ...prev, [id]: false }));
-    setTaskReasons(prev => ({ ...prev, [id]: '' }));
   };
 
 const fetchFields = useCallback(async () => {
@@ -308,6 +223,28 @@ const submitIncident = async () => {
     if (status === 'Completed')   return '#10b981';
     if (status === 'In Progress') return '#3b82f6';
     return '#f59e0b';
+  };
+
+  const handleUpdateTaskStatus = async (assignmentId, status) => {
+    try {
+      const { data } = await axios.put(
+        `${backendUrl}/api/worker/tasks/${assignmentId}/status`,
+        { status },
+        {
+          withCredentials: true,
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem('token')}`
+          }
+        }
+      );
+      if (data?.message || data?.success) {
+        fetchTasks();
+        fetchNotifications();
+      }
+    } catch (err) {
+      console.error('updateTaskStatus:', err.response?.data || err.message);
+      alert(err.response?.data?.message || 'Unable to update task status');
+    }
   };
 
   const notifIcon = (type) => {
@@ -693,103 +630,26 @@ const submitIncident = async () => {
                         </p>
                       )}
 
-                      {/* ── Actions — today only ── */}
-                      {activedTab === 'today' && (
-                        <div className="task-actions">
+                      {/* Worker actions */}
+                      <div className="task-actions">
+                        {task.status === 'Assigned' && (
+                          <button
+                            className="task-action-btn start-btn"
+                            onClick={() => handleUpdateTaskStatus(task.id, 'in_progress')}
+                          >
+                            Accept Task
+                          </button>
+                        )}
+                        {task.status === 'In Progress' && (
+                          <button
+                            className="task-action-btn complete-btn"
+                            onClick={() => handleUpdateTaskStatus(task.id, 'completed')}
+                          >
+                            Mark Complete
+                          </button>
+                        )}
+                      </div>
 
-                          {task.status === 'Assigned' && (
-                            <>
-                              <button className="task-action-btn start-btn"
-                                onClick={() => handleStartTask(task.id)}>
-                                <FiArrowRight size={15}/> Start Task
-                              </button>
-                              <button className="task-action-btn unable-btn"
-                                onClick={() => handleUnableToday(task)}>
-                                Unable Today
-                              </button>
-                            </>
-                          )}
-
-                          {task.status === 'In Progress' && (
-                            <>
-                              <button
-                                className="task-action-btn complete-btn"
-                                onClick={() => handleCompleteTask(task)}
-                                disabled={completing[task.id]}>
-                                <FiCheckCircle size={15}/>
-                                {completing[task.id] ? 'Saving...' : 'Mark Complete'}
-                              </button>
-                              <button className="task-action-btn unable-btn"
-                                onClick={() => handleUnableToday(task)}>
-                                Unable Today
-                              </button>
-                            </>
-                          )}
-
-                          {task.pending_verification && (
-                            <div className="task-verify-badge">
-                               Awaiting Supervisor Verification
-                            </div>
-                          )}
-
-                          {task.status === 'Completed' && !task.pending_verification && (
-                            <div className="task-completed-badge">
-                              <FiCheckCircle size={15}/> Completed & Verified
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Tomorrow badge */}
-                      {activedTab === 'tomorrow' && (
-                        <div className="task-actions">
-                          <div className="task-tomorrow-badge">
-                            <FiCalendar size={13}/> Scheduled for tomorrow
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Reason modal */}
-                      {showReasonInput[task.id] && (
-                        <div className="reason-modal-overlay"
-                          onClick={() => cancelReason(task.id)}>
-                          <div className="reason-modal"
-                            onClick={e => e.stopPropagation()}>
-                            <div className="reason-modal-header">
-                              <h4>Unable to Complete</h4>
-                              <button className="close-btn"
-                                onClick={() => cancelReason(task.id)}>
-                                <FiX size={18}/>
-                              </button>
-                            </div>
-                            <div className="reason-modal-body">
-                              <label>
-                                Reason for postponing "{task.name}":
-                              </label>
-                              <textarea
-                                className="reason-input" rows={4} autoFocus
-                                placeholder="E.g., Equipment unavailable, weather conditions…"
-                                value={taskReasons[task.id] || ''}
-                                onChange={e => setTaskReasons(prev => ({
-                                  ...prev, [task.id]: e.target.value,
-                                }))}
-                              />
-                            </div>
-                            <div className="reason-modal-footer">
-                              <button className="reason-cancel-btn"
-                                onClick={() => cancelReason(task.id)}>
-                                Cancel
-                              </button>
-                              <button
-                                className="reason-submit-btn"
-                                onClick={() => submitReason(task)}
-                                disabled={!taskReasons[task.id]?.trim()}>
-                                Postpone to Tomorrow
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      )}
                     </div>
                   ))}
                 </div>

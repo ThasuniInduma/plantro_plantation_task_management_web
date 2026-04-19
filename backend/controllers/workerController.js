@@ -427,3 +427,33 @@ export const getWorkersForSupervisor = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+
+export const getWorkerTasksByDate = async (req, res) => {
+  try {
+    const workerUserId = req.user?.id;
+    if (!workerUserId) return res.status(401).json({ error: "Unauthorized" });
+    const date = req.query.date;
+    if (!date) return res.status(400).json({ error: "Date required" });
+
+    const workerId = await getWorkerIdByUserId(workerUserId);
+    if (!workerId) return res.status(404).json({ error: "Worker profile not found" });
+
+    const [assignments] = await db.query(
+      `SELECT ta.assignment_id, ta.task_id, ta.field_id, ta.status, ta.expected_hours, ta.deadline_time,
+              t.task_name, f.field_name, c.crop_name, f.location
+       FROM task_assignments ta
+       JOIN tasks t ON ta.task_id = t.task_id
+       JOIN fields f ON ta.field_id = f.field_id
+       JOIN crops c ON f.crop_id = c.crop_id
+       WHERE ta.worker_id = ? AND DATE(ta.assigned_date) = ? AND ta.status != 'rejected'
+       ORDER BY ta.deadline_time`,
+      [workerId, date]
+    );
+
+    res.json(assignments);
+  } catch (err) {
+    console.error("getWorkerTasksByDate:", err);
+    res.status(500).json({ error: "Database error" });
+  }
+};
+

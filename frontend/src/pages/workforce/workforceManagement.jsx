@@ -456,10 +456,7 @@ const WorkforceManagement = ({ logo }) => {
                         <button className="icon-action-btn" onClick={fetchWorkers} title="Refresh">
                             <FiRefreshCw className={loading ? 'spin' : ''} />
                         </button>
-                        <button className="notification-btn">
-                            <FiBell />
-                            <span className="notification-badge">5</span>
-                        </button>
+                        
                     </div>
                 </header>
 

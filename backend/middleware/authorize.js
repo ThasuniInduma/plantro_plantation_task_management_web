@@ -1,15 +1,13 @@
-import jwt from "jsonwebtoken";
-
 export const authorize = (...allowedRoles) => {
+  const normalizedRoles = allowedRoles.map(r => r.toLowerCase());
+
   return (req, res, next) => {
     try {
       if (!req.user || !req.user.role_name) {
         return res.status(403).json({ message: "No role found" });
       }
 
-      const userRole = req.user.role_name.toLowerCase();
-
-      if (!allowedRoles.map(r => r.toLowerCase()).includes(userRole)) {
+      if (!normalizedRoles.includes(req.user.role_name)) {
         return res.status(403).json({ message: "Forbidden" });
       }
 

@@ -301,10 +301,7 @@ const FieldManagement = ({ logo }) => {
                         <p className="fm-subtitle">Manage plantation fields, tasks and assignments</p>
                     </div>
                     <div className="fm-header-actions">
-                        <button className="fm-notif-btn">
-                            <FiBell />
-                            <span className="fm-notif-badge">3</span>
-                        </button>
+                        
                         <button className="fm-add-btn" onClick={openAddModal}>
                             <FiPlus /> Add New Field
                         </button>

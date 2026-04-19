@@ -79,7 +79,12 @@ console.log("FULL RESPONSE:", response);
 console.log("RESPONSE DATA:", data);
 
 if (data.success) {
-  const user = data.user;
+  const role = (data.user.role_name || "").toLowerCase();
+
+  const user = {
+    ...data.user,
+    role_name: role
+  };
 
   // ✅ Clear old session first
   localStorage.removeItem("token");
@@ -90,20 +95,28 @@ if (data.success) {
   setUserData(user);
   setIsLoggedIn(true);
 
-  // ✅ Set fresh data
+  // ✅ Clear old session
+  localStorage.removeItem("token");
+  localStorage.removeItem("user");
+
+  // ✅ Save new session
   localStorage.setItem("token", data.token);
   localStorage.setItem("user", JSON.stringify(user));
 
-  const roleName = (user.role_name || '').trim().toUpperCase();
-  console.log("LOGIN ROLE:", roleName);
+  setUserData(user);
+  setIsLoggedIn(true);
 
-  if (roleName === 'OWNER' || roleName === 'ADMIN') {
-    navigate('/admin');
-  } else if (roleName === 'SUPERVISOR') {
-    navigate('/supervisor');
-  } else if (roleName === 'WORKER') {
-    navigate('/worker/dashboard');
-  }
+  toast.success('Login successful');
+
+  console.log("LOGIN ROLE:", role);
+
+  if (role === 'owner' || role === 'admin') {
+  navigate('/admin');
+} else if (role === 'supervisor') {
+  navigate('/supervisor');
+} else if (role === 'worker') {
+  navigate('/worker/dashboard');
+}
 } else {
   toast.error(data.message || 'Login failed');
 }
