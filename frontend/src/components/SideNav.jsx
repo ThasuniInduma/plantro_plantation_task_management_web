@@ -100,7 +100,7 @@ console.log("computed role:", role);
         { title: 'Management', items: [
           { id: 'attendance', label: 'Attendance',   icon: <FiCalendar />,    path: '/attendance' },
           { id: 'tasks',      label: 'Assign Tasks', icon: <FiCheckSquare />, path: '/tasks' },
-          { id: 'report',      label: 'Report Incidents', icon: <FiBarChart2 />, path: '/incidents' },
+          { id: 'incident',      label: 'Report Incidents', icon: <FiBarChart2 />, path: '/incidents' },
         ]},
       ],
       profilePath: '/supervisor-profile',

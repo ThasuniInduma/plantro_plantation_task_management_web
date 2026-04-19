@@ -42,6 +42,9 @@ const WorkerDashboard = () => {
   const [incident_type, setIncidentType] = useState('other');
   const [severity, setSeverity] = useState('low');
 
+  const [myReports, setMyReports] = useState([]);
+const [loadingReports, setLoadingReports] = useState(false);
+
   const displayName = userData?.full_name || userData?.name || 'Worker';
 
   // Live clock
@@ -74,7 +77,20 @@ const WorkerDashboard = () => {
   }, [backendUrl]);
 
   useEffect(() => { fetchTasks(); }, [fetchTasks]);
-
+  const fetchMyReports = useCallback(async () => {
+  try {
+    setLoadingReports(true);
+    const { data } = await axios.get(`${backendUrl}/api/incidents/my`, {
+      withCredentials: true,
+      headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
+    });
+    if (data.success) setMyReports(data.reports || []);
+  } catch (err) {
+    console.error("fetchMyReports:", err);
+  } finally {
+    setLoadingReports(false);
+  }
+}, [backendUrl]);
   
   const fetchNotifications = useCallback(async () => {
     try {
@@ -403,88 +419,161 @@ const submitIncident = async () => {
           {/* ── Incident Reports ── */}
           <div className="incident-card">
 
-  <div className="incident-header">
-    <h3>Incident Reports</h3>
-    <p>Report issues quickly in one place</p>
+            <div className="incident-header">
+              <h3>Incident Reports</h3>
+              <p>Report issues quickly in one place</p>
+            </div>
+
+            {/* FORM INSIDE ONE CARD */}
+            <div className="incident-form-row">
+
+              <input
+                type="text"
+                placeholder="Title"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+              />
+
+              <select
+                value={selectedField}
+                onChange={(e) => setSelectedField(e.target.value)}
+              >
+                <option value="">Field</option>
+                {fields.map((field) => (
+                  <option key={field.field_id} value={field.field_id}>
+                    {field.field_name}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                value={incident_type}
+                onChange={(e) => setIncidentType(e.target.value)}
+              >
+                <option value="safety">Safety</option>
+                <option value="equipment_damage">Equipment</option>
+                <option value="weather_issue">Weather</option>
+                <option value="theft">Theft</option>
+                <option value="other">Other</option>
+              </select>
+
+              <select
+                value={severity}
+                onChange={(e) => setSeverity(e.target.value)}
+              >
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+                <option value="critical">Critical</option>
+              </select>
+
+              <button onClick={submitIncident}>
+                Submit
+              </button>
+
+            </div>
+
+            {/* DESCRIPTION */}
+            <textarea
+              className="incident-desc"
+              placeholder="Describe the incident..."
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+            />
+
+            {/* ACTIONS INSIDE SAME CARD */}
+            <div className="incident-footer-actions">
+
+              <button
+                className="btn-outline"
+                onClick={() => {
+              setActiveTab('my-reports');
+              fetchMyReports();
+            }}
+              >
+                My Reports
+              </button>
+
+              
+
+            </div>
+
+          </div>
+          {activeTab === 'my-reports' && (
+  <div className="incident-card">
+    <div className="incident-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div>
+        <h3>My Reports</h3>
+        <p>All incidents you have submitted</p>
+      </div>
+      <button
+        className="btn-outline"
+        style={{ padding: '6px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer', borderRadius: 8, border: '1px solid var(--border-color)' }}
+        onClick={() => setActiveTab('worker')}
+      >
+        ✕ Close
+      </button>
+    </div>
+
+    {loadingReports ? (
+      <div style={{ display: 'flex', justifyContent: 'center', padding: 24 }}>
+        <div className="tasks-loading-spinner" />
+      </div>
+    ) : myReports.length === 0 ? (
+      <div className="no-tasks" style={{ minHeight: 120 }}>
+        <span className="no-tasks-icon">📋</span>
+        <h3>No reports yet</h3>
+        <p>You haven't submitted any incident reports.</p>
+      </div>
+    ) : (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {myReports.map(r => (
+          <div key={r.report_id} style={{
+            background: 'var(--bg-tertiary)',
+            border: '1px solid var(--border-color)',
+            borderRadius: 10,
+            padding: '12px 14px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 6,
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)' }}>{r.title}</span>
+              <span style={{
+                fontSize: 11, fontWeight: 700, padding: '2px 9px',
+                borderRadius: 999,
+                background:
+                  r.status === 'resolved' ? 'rgba(16,185,129,0.12)' :
+                  r.status === 'in_progress' ? 'rgba(59,130,246,0.12)' :
+                  'rgba(245,158,11,0.12)',
+                color:
+                  r.status === 'resolved' ? '#065f46' :
+                  r.status === 'in_progress' ? '#1d4ed8' :
+                  '#92400e',
+              }}>
+                {r.status.replace('_', ' ').toUpperCase()}
+              </span>
+            </div>
+            <p style={{ margin: 0, fontSize: 12, color: 'var(--text-secondary)' }}>{r.description}</p>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 4 }}>
+              <span style={{ fontSize: 11, color: 'var(--text-muted)' }}> {r.field_name}</span>
+              <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>🏷 {r.incident_type.replace('_', ' ')}</span>
+              <span style={{
+                fontSize: 11, fontWeight: 600,
+                color: r.severity === 'critical' ? '#ef4444' : r.severity === 'high' ? '#f59e0b' : 'var(--text-muted)'
+              }}>
+                ⚠️ {r.severity}
+              </span>
+              <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 'auto' }}>
+                {new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+              </span>
+            </div>
+          </div>
+        ))}
+      </div>
+    )}
   </div>
-
-  {/* FORM INSIDE ONE CARD */}
-  <div className="incident-form-row">
-
-    <input
-      type="text"
-      placeholder="Title"
-      value={title}
-      onChange={(e) => setTitle(e.target.value)}
-    />
-
-    <select
-      value={selectedField}
-      onChange={(e) => setSelectedField(e.target.value)}
-    >
-      <option value="">Field</option>
-      {fields.map((field) => (
-        <option key={field.field_id} value={field.field_id}>
-          {field.field_name}
-        </option>
-      ))}
-    </select>
-
-    <select
-      value={incident_type}
-      onChange={(e) => setIncidentType(e.target.value)}
-    >
-      <option value="safety">Safety</option>
-      <option value="equipment_damage">Equipment</option>
-      <option value="weather_issue">Weather</option>
-      <option value="theft">Theft</option>
-      <option value="other">Other</option>
-    </select>
-
-    <select
-      value={severity}
-      onChange={(e) => setSeverity(e.target.value)}
-    >
-      <option value="low">Low</option>
-      <option value="medium">Medium</option>
-      <option value="high">High</option>
-      <option value="critical">Critical</option>
-    </select>
-
-    <button onClick={submitIncident}>
-      Submit
-    </button>
-
-  </div>
-
-  {/* DESCRIPTION */}
-  <textarea
-    className="incident-desc"
-    placeholder="Describe the incident..."
-    value={description}
-    onChange={(e) => setDescription(e.target.value)}
-  />
-
-  {/* ACTIONS INSIDE SAME CARD */}
-  <div className="incident-footer-actions">
-
-    <button
-      className="btn-outline"
-      onClick={() => setActiveTab('my-reports')}
-    >
-      My Reports
-    </button>
-
-    <button
-      className="btn-primary"
-      onClick={() => setActiveTab('new-report')}
-    >
-      New Report
-    </button>
-
-  </div>
-
-</div>
+)}
 
           {/* ── Tasks ── */}
           <div className="tasks-section">

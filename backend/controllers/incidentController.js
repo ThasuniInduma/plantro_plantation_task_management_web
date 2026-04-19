@@ -180,3 +180,30 @@ export const updateIncidentStatus = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+export const getMyIncidents = async (req, res) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ message: "Unauthorized" });
+
+    const [rows] = await db.query(
+      `SELECT 
+        ir.report_id,
+        ir.title,
+        ir.description,
+        ir.incident_type,
+        ir.severity,
+        ir.status,
+        ir.created_at,
+        f.field_name
+       FROM incident_reports ir
+       JOIN fields f ON ir.field_id = f.field_id
+       WHERE ir.reporter_id = ?
+       ORDER BY ir.created_at DESC`,
+      [userId]
+    );
+
+    res.json({ success: true, reports: rows });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
