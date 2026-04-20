@@ -20,13 +20,11 @@ const SideNav = ({ activeTab, setActiveTab }) => {
   const role = useMemo(() => {
   if (!userData) return null;
 
-  // Prefer role_id (number), fallback to role_name (string)
   const roleId = Number(userData.role_id);
   if (roleId === 1) return 'admin';
   if (roleId === 2) return 'supervisor';
   if (roleId === 3) return 'worker';
 
-  // Fallback: derive from role_name string
   const roleName = (userData.role_name || '').toLowerCase();
   if (roleName === 'admin' || roleName === 'owner') return 'admin';
   if (roleName === 'supervisor') return 'supervisor';
@@ -55,7 +53,6 @@ console.log("computed role:", role);
   try { await axios.post(`${backendUrl}/api/auth/logout`); }
   catch (err) { console.error(err); }
   
-  // Clear everything
   localStorage.removeItem("token");
   localStorage.removeItem("user");
   setIsLoggedIn(false);
@@ -68,7 +65,7 @@ console.log("computed role:", role);
     navigate(path);
   };
 
-  // Use URL to detect active item (works even when activeTab prop is not passed)
+  // detect active item
   const isActive = (itemId, itemPath) => {
     if (activeTab) return activeTab === itemId;
     return location.pathname === itemPath
@@ -119,7 +116,7 @@ console.log("computed role:", role);
 
   return (
     <>
-      {/* ── Floating re-open tab (only when sidebar is hidden) ── */}
+      {/*  Floating re-open tab */}
       {collapsed && (
         <button className="sidebar-open-btn" onClick={() => setCollapsed(false)} title="Show sidebar">
           <FiChevronRight size={20} />
@@ -128,13 +125,12 @@ console.log("computed role:", role);
 
       <aside className={`sidebar${collapsed ? ' sidebar-hidden' : ''}`}>
 
-        {/* ── Hide button (top-right of sidebar) ── */}
+        {/*  Hide button */}
         <button className="sidebar-hide-btn" onClick={() => setCollapsed(true)} title="Hide sidebar">
           <FiChevronLeft size={15} />
           <span>Hide</span>
         </button>
 
-        {/* Everything below is exactly the original markup */}
         <div className="sidebar-header">
           <div className="brand-logo">
             <img src={assets.plantro} alt="Plantro Logo" className="brand-logo-img" />

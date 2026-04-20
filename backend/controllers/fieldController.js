@@ -1,6 +1,6 @@
 import { db } from "../config/db.js";
 
-// ── Reusable SELECT (no f.supervisor_id — it lives in supervisors table) ──────
+// Reusable SELECT for fields
 const FIELD_SELECT = `
   SELECT
     f.field_id,
@@ -17,7 +17,7 @@ const FIELD_SELECT = `
   LEFT JOIN users       u ON u.user_id  = s.user_id
 `;
 
-// GET /api/fields
+//get all fields
 export const getAllFields = async (req, res) => {
   try {
     const [rows] = await db.query(`${FIELD_SELECT} ORDER BY f.field_id`);
@@ -28,7 +28,7 @@ export const getAllFields = async (req, res) => {
   }
 };
 
-// GET /api/fields/:id
+//Get field by id
 export const getFieldById = async (req, res) => {
   try {
     const [rows] = await db.query(`${FIELD_SELECT} WHERE f.field_id = ?`, [req.params.id]);
@@ -40,7 +40,7 @@ export const getFieldById = async (req, res) => {
   }
 };
 
-// POST /api/fields
+// create field
 export const createField = async (req, res) => {
   const conn = await db.getConnection();
   try {
@@ -52,7 +52,7 @@ export const createField = async (req, res) => {
       return res.status(400).json({ error: "field_name, crop_id, location and area are required" });
     }
 
-    // ── Validate supervisor if provided ───────────────────────────────────────
+    // Validate supervisor if provided
     if (supervisor_id) {
       const [checkSup] = await conn.query(
         `SELECT u.user_id FROM users u
@@ -63,7 +63,7 @@ export const createField = async (req, res) => {
         return res.status(400).json({ error: "Invalid supervisor" });
       }
 
-      // ✅ Supervisor must not already be assigned to another field
+      // Supervisor must not already be assigned to another field
       const [alreadyAssigned] = await conn.query(
         "SELECT field_id FROM supervisors WHERE user_id = ?",
         [supervisor_id]
@@ -73,14 +73,14 @@ export const createField = async (req, res) => {
       }
     }
 
-    // ── Insert field ──────────────────────────────────────────────────────────
+    // Insert field 
     const [result] = await conn.query(
       "INSERT INTO fields (field_name, crop_id, location, area) VALUES (?, ?, ?, ?)",
       [field_name, Number(crop_id), location, parseFloat(area)]
     );
     const fieldId = result.insertId;  // ✅ declared BEFORE use
 
-    // ── Assign supervisor if provided ─────────────────────────────────────────
+    // Assign supervisor if provided
     if (supervisor_id) {
       await conn.query(
         "INSERT INTO supervisors (user_id, field_id) VALUES (?, ?)",
@@ -88,7 +88,7 @@ export const createField = async (req, res) => {
       );
     }
 
-    // ── Seed task schedule from crop tasks ────────────────────────────────────
+    // task schedule from crop tasks
     const [cropTasks] = await conn.query(
       "SELECT crop_task_id, task_id, frequency_days FROM crop_tasks WHERE crop_id = ?",
       [crop_id]
@@ -103,7 +103,7 @@ export const createField = async (req, res) => {
 
     await conn.commit();
 
-    // ── Return full field object ──────────────────────────────────────────────
+    // Return full field object
     const [rows] = await conn.query(`${FIELD_SELECT} WHERE f.field_id = ?`, [fieldId]);
     res.status(201).json(rows[0]);
   } catch (err) {
@@ -115,7 +115,7 @@ export const createField = async (req, res) => {
   }
 };
 
-// PUT /api/fields/:id
+// update field
 export const updateField = async (req, res) => {
   const conn = await db.getConnection();
   try {
@@ -131,7 +131,7 @@ export const updateField = async (req, res) => {
     const [check] = await conn.query("SELECT field_id FROM fields WHERE field_id = ?", [id]);
     if (!check.length) return res.status(404).json({ error: "Field not found" });
 
-    // ── Validate supervisor if provided ───────────────────────────────────────
+    // Validate supervisor if provided
     if (supervisor_id) {
       const [checkSup] = await conn.query(
         `SELECT u.user_id FROM users u
@@ -142,7 +142,7 @@ export const updateField = async (req, res) => {
         return res.status(400).json({ error: "Invalid supervisor" });
       }
 
-      // ✅ Supervisor must not be assigned to a DIFFERENT field
+      // Supervisor must not be assigned to a DIFFERENT field
       const [alreadyAssigned] = await conn.query(
         "SELECT field_id FROM supervisors WHERE user_id = ? AND field_id != ?",
         [supervisor_id, id]
@@ -152,13 +152,13 @@ export const updateField = async (req, res) => {
       }
     }
 
-    // ── Update field ──────────────────────────────────────────────────────────
+    // Update field
     await conn.query(
       "UPDATE fields SET field_name=?, crop_id=?, location=?, area=? WHERE field_id=?",
       [field_name, Number(crop_id), location, parseFloat(area), id]
     );
 
-    // ── Update supervisor ─────────────────────────────────────────────────────
+    // Update supervisor
     if (supervisor_id) {
       await conn.query(
         `INSERT INTO supervisors (user_id, field_id) VALUES (?, ?)
@@ -166,7 +166,7 @@ export const updateField = async (req, res) => {
         [supervisor_id, id]
       );
     } else {
-      // ✅ Remove supervisor if cleared
+      // Remove supervisor if cleared
       await conn.query("DELETE FROM supervisors WHERE field_id = ?", [id]);
     }
 
@@ -183,7 +183,7 @@ export const updateField = async (req, res) => {
   }
 };
 
-// DELETE /api/fields/:id
+// DELETE FIELDS
 export const deleteField = async (req, res) => {
   try {
     const { id } = req.params;
@@ -197,7 +197,7 @@ export const deleteField = async (req, res) => {
   }
 };
 
-// DELETE /api/fields/:field_id/supervisor
+// DELETE supervisorr from field
 export const removeSupervisorFromField = async (req, res) => {
   const conn = await db.getConnection();
   try {
@@ -213,7 +213,7 @@ export const removeSupervisorFromField = async (req, res) => {
   }
 };
 
-// GET /api/fields/supervisors — only supervisors NOT yet assigned to any field
+// get supervisors who only NOT yet assigned to any field
 export const getSupervisors = async (req, res) => {
   try {
     const [rows] = await db.query(
@@ -231,7 +231,7 @@ export const getSupervisors = async (req, res) => {
   }
 };
 
-// GET /api/fields/workers
+// GET workers
 export const getWorkers = async (req, res) => {
   try {
     const [rows] = await db.query(
@@ -249,7 +249,7 @@ export const getWorkers = async (req, res) => {
   }
 };
 
-// GET /api/fields/:id/tasks
+// GET field tasks
 export const getFieldTasks = async (req, res) => {
   try {
     const { id } = req.params;
@@ -316,7 +316,7 @@ export const getFieldTasks = async (req, res) => {
   }
 };
 
-// POST /api/fields/:id/assign
+// assign tasks
 export const assignTask = async (req, res) => {
   try {
     const { id } = req.params;
@@ -366,7 +366,7 @@ export const assignTask = async (req, res) => {
   }
 };
 
-// GET /api/crops/:id/fields — fields growing a specific crop
+// get fields growing a specific crop
 export const getFieldsByCrop = async (req, res) => {
   try {
     const [rows] = await db.query(

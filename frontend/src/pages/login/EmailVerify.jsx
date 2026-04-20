@@ -72,7 +72,7 @@ const EmailVerify = () => {
       
       if (data.success) {
         toast.success(data.message);
-        navigate('/login'); // ✅ user must login after verification
+        navigate('/login'); // user must login after verification
       } else {
         toast.error(data.message)
         // Clear inputs on error
@@ -88,14 +88,12 @@ const EmailVerify = () => {
     }
   }
 
-  // EmailVerify.jsx
-
   const handleResendOTP = async () => {
     try {
       const { data } = await axios.post(
         `${backendUrl}/api/auth/resend-otp`,
         {
-          email: userData.email   // ✅ REQUIRED
+          email: userData.email 
         }
       );
 
@@ -115,7 +113,6 @@ const EmailVerify = () => {
     isLoggedIn && userData && userData.isAccountVerified && navigate('/')
   }, [isLoggedIn, userData])
 
-  // Auto-focus first input on mount
   useEffect(() => {
     if (inputRefs.current[0]) {
       inputRefs.current[0].focus()

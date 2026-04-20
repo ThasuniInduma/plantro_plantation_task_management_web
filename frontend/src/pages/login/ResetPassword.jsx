@@ -106,8 +106,6 @@ const ResetPassword = () => {
     setIsLoading(false)
   }
 
-  // ResetPassword.jsx
-
   const onSubmitNewPassword = async (e) => {
     e.preventDefault();
 
@@ -184,7 +182,7 @@ const ResetPassword = () => {
           </div>
         </div>
 
-        {/* Step 1: Email Form */}
+        {/* Email Form */}
         {!isEmailSent && 
           <form className='form-card' onSubmit={onSubmitEmail}>
             <div className='icon-wrapper'>
@@ -216,7 +214,7 @@ const ResetPassword = () => {
           </form>
         }
 
-        {/* Step 2: OTP Form */}
+        {/* OTP Form */}
         {!isOtpSubmited && isEmailSent &&
           <form className='form-card otp-form' onSubmit={onSubmitOtp}>
             <div className='icon-wrapper'>
@@ -266,7 +264,7 @@ const ResetPassword = () => {
           </form>
         }
 
-        {/* Step 3: New Password Form */}
+        {/* New Password Form */}
         {isOtpSubmited && isEmailSent && 
           <form className='form-card' onSubmit={onSubmitNewPassword}>
             <div className='icon-wrapper'>

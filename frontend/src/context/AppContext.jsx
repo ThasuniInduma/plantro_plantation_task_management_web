@@ -3,7 +3,6 @@ import axios from 'axios';
 
 export const AppContext = createContext();
 
-// ✅ ADD THESE TWO LINES
 export const api = axios.create({
   baseURL: 'http://localhost:8081',
 });

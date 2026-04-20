@@ -1,9 +1,9 @@
 import { db } from "../config/db.js";
 
-// ✅ Supervisor / Owner marking
+// Supervisor attendance marking of workers
 export const markAttendance = async (req, res) => {
   const { date, records, mode } = req.body;
-  const userId = req.user.id; // ✅ FIXED: was req.userId
+  const userId = req.user.id; 
 
   try {
     const method = mode === "remote" ? "system" : "manual";
@@ -42,7 +42,6 @@ export const markAttendance = async (req, res) => {
   }
 };
 
-// ✅ Get attendance for UI
 export const getAttendanceByDate = async (req, res) => {
   const { date } = req.params;
 
@@ -70,34 +69,3 @@ export const getAttendanceByDate = async (req, res) => {
   }
 };
 
-// ✅ Worker self check-in
-export const selfCheckIn = async (req, res) => {
-  const userId = req.user.id; // ✅ FIXED: was req.userId
-  const today = new Date().toISOString().split("T")[0];
-
-  try {
-    const [[worker]] = await db.query(
-      "SELECT worker_id FROM workers WHERE user_id = ?",
-      [userId]
-    );
-
-    if (!worker) {
-      return res.status(400).json({ message: "Not a worker" });
-    }
-
-    const time = new Date().toTimeString().slice(0, 8);
-
-    await db.query(
-      `INSERT INTO attendance 
-      (worker_id, date, status, check_in, marked_by, method)
-      VALUES (?, ?, 'present', ?, ?, 'self')
-      ON DUPLICATE KEY UPDATE
-      check_in = VALUES(check_in)`,
-      [worker.worker_id, today, time, userId]
-    );
-
-    res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ success: false });
-  }
-};

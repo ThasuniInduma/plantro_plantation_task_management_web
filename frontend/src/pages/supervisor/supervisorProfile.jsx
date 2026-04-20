@@ -29,9 +29,7 @@ const SupervisorProfile = () => {
 
   const [saveStatus, setSaveStatus] = useState(null);
 
-  // =========================
-  // FETCH PROFILE (FIXED)
-  // =========================
+
   useEffect(() => {
     const fetchSupervisorData = async () => {
       try {
@@ -56,14 +54,12 @@ const SupervisorProfile = () => {
           throw new Error(data.message || "Invalid user data");
         }
 
-        // 🔥 FIX HERE: extract user object
         const user = data.user;
 
         if (!user || !user.user_id) {
           throw new Error('Invalid user data');
         }
 
-        // 🔥 optional safety: supervisor only
         if (user.role_id !== 2) {
           navigate('/login');
           return;
@@ -85,9 +81,7 @@ const SupervisorProfile = () => {
     fetchSupervisorData();
   }, [navigate]);
 
-  // =========================
-  // EDIT HANDLERS
-  // =========================
+
   const handleEdit = () => {
     setEditing(true);
     setSaveStatus(null);
@@ -110,9 +104,6 @@ const SupervisorProfile = () => {
     }));
   };
 
-  // =========================
-  // SAVE PROFILE
-  // =========================
   const handleSaveProfile = async () => {
     try {
       const token = localStorage.getItem('token');
@@ -154,18 +145,13 @@ const SupervisorProfile = () => {
     }
   };
 
-  // =========================
-  // LOGOUT
-  // =========================
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     navigate('/login');
   };
 
-  // =========================
-  // LOADING
-  // =========================
+
   if (loading) {
     return (
       <div className="supervisor-profile-layout">

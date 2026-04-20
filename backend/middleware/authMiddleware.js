@@ -5,12 +5,12 @@ export const authenticate = async (req, res, next) => {
   try {
     let token = null;
 
-    // ✅ Bearer token FIRST
+    // Bearer token
     if (req.headers.authorization?.startsWith("Bearer ")) {
       token = req.headers.authorization.split(" ")[1];
     }
 
-    // ✅ Cookie fallback
+    // Cookie fallback
     if (!token && req.cookies?.token) {
       token = req.cookies.token;
     }
@@ -21,7 +21,6 @@ export const authenticate = async (req, res, next) => {
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    // 🚀 FAST PATH (NO DB HIT)
     if (decoded.role) {
       req.user = {
         id: decoded.id,
@@ -30,7 +29,7 @@ export const authenticate = async (req, res, next) => {
       return next();
     }
 
-    // 🐢 FALLBACK (ONLY if role missing in token)
+    // FALLBACK (ONLY if role missing in token)
     const [rows] = await db.query(
       `SELECT u.user_id, u.full_name, r.role_name
        FROM users u

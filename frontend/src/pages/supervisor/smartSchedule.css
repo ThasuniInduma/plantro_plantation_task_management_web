@@ -30,7 +30,7 @@
   min-height:100vh; overflow:hidden;
 }
 
-/* ── Header ── */
+/*  Header  */
 .ss-header {
   height:68px; background:var(--card);
   padding:0 1.75rem;
@@ -57,14 +57,14 @@
 }
 .ss-refresh-btn:hover { border-color:var(--bright); color:var(--leaf); }
 
-/* ── Body ── */
+/*  Body  */
 .ss-body {
   flex:1; padding:1.25rem 1.5rem;
   display:flex; flex-direction:column; gap:1rem;
   overflow:hidden;
 }
 
-/* ── Stats ── */
+/*  Stats  */
 .ss-stats {
   display:grid; grid-template-columns:repeat(4,1fr); gap:0.75rem;
   flex-shrink:0;
@@ -91,7 +91,7 @@
 }
 .ss-stat-l { font-size:0.6875rem; color:var(--t2); margin-top:2px; font-weight:600; }
 
-/* ── Toggle ── */
+/*  Toggle  */
 .ss-toggle-row {
   display:flex; gap:6px;
   background:var(--card);
@@ -111,14 +111,14 @@
 .ss-tog.on { background:linear-gradient(135deg,var(--forest),var(--leaf)); color:white; }
 .ss-tog:hover:not(.on) { background:var(--sub); color:var(--t1); }
 
-/* ── Content split ── */
+/*  Content split  */
 .ss-content {
   flex:1; display:flex; gap:1rem;
   min-height:0; overflow:hidden;
 }
 .ss-content.split .ss-list-panel { flex:0 0 340px; }
 
-/* ── List panel ── */
+/*  List panel  */
 .ss-list-panel {
   flex:1; overflow-y:auto;
   display:flex; flex-direction:column; gap:0.75rem;
@@ -127,7 +127,7 @@
 .ss-list-panel::-webkit-scrollbar { width:4px; }
 .ss-list-panel::-webkit-scrollbar-thumb { background:rgba(0,0,0,0.1); border-radius:2px; }
 
-/* ── Field section ── */
+/*  Field section  */
 .ss-field-section { display:flex; flex-direction:column; gap:6px; }
 .ss-field-label {
   display:flex; align-items:center; gap:6px;
@@ -141,7 +141,7 @@
 }
 .ss-loc-text { color:var(--t3); font-weight:500; }
 
-/* ── Task cards ── */
+/*  Task cards  */
 .ss-task-cards { display:flex; flex-direction:column; gap:6px; }
 
 .ss-task-card {
@@ -199,7 +199,7 @@
 }
 .ss-card-arrow { color:var(--t3); flex-shrink:0; }
 
-/* ── Detail panel ── */
+/*  Detail panel  */
 .ss-detail-panel {
   flex:1; background:var(--card);
   border:1px solid var(--border);
@@ -422,7 +422,7 @@
 }
 .ss-dismiss-btn:hover { border-color:#f59e0b; color:#d97706; }
 
-/* ── Upcoming ── */
+/*  Upcoming  */
 .ss-upcoming-list { display:flex; flex-direction:column; gap:1px; }
 .ss-up-row {
   display:flex; align-items:center; gap:1rem;
@@ -451,7 +451,7 @@
 }
 .ss-up-meta span { display:flex; align-items:center; gap:3px; }
 
-/* ── Empty / loading ── */
+/*  Empty / loading  */
 .ss-empty {
   display:flex; flex-direction:column;
   align-items:center; justify-content:center;
@@ -469,7 +469,7 @@
 }
 @keyframes spin { to { transform:rotate(360deg); } }
 
-/* ── Responsive ── */
+/*  Responsive  */
 @media (max-width:1200px) { .ss-stats { grid-template-columns:repeat(2,1fr); } }
 @media (max-width:968px)  {
   .ss-main { margin-left:0; }

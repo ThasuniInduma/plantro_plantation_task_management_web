@@ -1,11 +1,11 @@
-/* ─── Layout ──────────────────────────────────── */
+/*  Layout  */
 .setup-page {
   display: flex;
   min-height: 100vh;
   background: #f8fafb;
 }
 
-/* ─── Left decorative panel ───────────────────── */
+/*  Left decorative panel  */
 .setup-panel {
   width: 380px;
   flex-shrink: 0;
@@ -98,7 +98,7 @@
   min-width: 40px;
 }
 
-/* ─── Right form area ─────────────────────────── */
+/*  Right form area  */
 .setup-form-area {
   flex: 1;
   display: flex;
@@ -146,7 +146,7 @@
   margin: 0;
 }
 
-/* ─── Form fields ─────────────────────────────── */
+/*  Form fields  */
 .setup-form {
   display: flex;
   flex-direction: column;
@@ -200,7 +200,7 @@
   box-shadow: 0 0 0 3px rgba(124, 179, 66, 0.12);
 }
 
-/* ─── Skills picker ───────────────────────────── */
+/*  Skills picker  */
 .skills-grid {
   display: flex;
   flex-wrap: wrap;
@@ -313,7 +313,7 @@
   color: #ef4444;
 }
 
-/* ─── Hours selector ──────────────────────────── */
+/*  Hours selector  */
 .hours-selector {
   display: flex;
   gap: 8px;
@@ -344,7 +344,7 @@
   color: white;
 }
 
-/* ─── Buttons ─────────────────────────────────── */
+/*  Buttons  */
 .setup-form-actions {
   display: flex;
   gap: 12px;
@@ -394,7 +394,7 @@
   background: #e5e7eb;
 }
 
-/* ─── Responsive ──────────────────────────────── */
+/*  Responsive  */
 @media (max-width: 900px) {
   .setup-panel {
     display: none;

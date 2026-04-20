@@ -1,5 +1,6 @@
 import { db } from "../config/db.js";
 
+// get all crops
 export const getCrops = async (req, res) => {
 
   try {
@@ -19,6 +20,7 @@ export const getCrops = async (req, res) => {
 
 };
 
+// add crop
 export const addCrop = async (req, res) => {
 
   try {
@@ -61,6 +63,7 @@ export const deleteCrop = (req, res) => {
 
 };
 
+//update crops
 export const updateCrop = async (req, res) => {
   try {
     const { name, description } = req.body;

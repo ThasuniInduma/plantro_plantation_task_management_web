@@ -1,6 +1,4 @@
-/* ============================================
-   SIDENAV - REUSABLE COMPONENT STYLES
-   ============================================ */
+
 
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap');
 
@@ -25,9 +23,6 @@
     --radius-full: 9999px;
 }
 
-/* ============================================
-   SIDEBAR CONTAINER
-   ============================================ */
 
 .sidebar {
     width: var(--sidebar-width);
@@ -43,9 +38,6 @@
     border-right: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-/* ============================================
-   SIDEBAR HEADER
-   ============================================ */
 
 .sidebar-header {
     padding: 2rem 1.75rem;
@@ -77,10 +69,6 @@
     letter-spacing: 1.2px;
     border: 1px solid rgba(124, 179, 66, 0.2);
 }
-
-/* ============================================
-   NAVIGATION MENU
-   ============================================ */
 
 .sidebar-nav {
     flex: 1;
@@ -174,10 +162,6 @@
     justify-content: center;
 }
 
-/* ============================================
-   SIDEBAR FOOTER
-   ============================================ */
-
 .sidebar-footer {
     padding: 1.25rem 1.75rem;
     border-top: 1px solid rgba(255, 255, 255, 0.08);
@@ -269,12 +253,6 @@
     border-color: rgba(239, 68, 68, 0.2);
 }
 
-/* ──────────────────────────────────────────────────────────
-   ADD THESE RULES TO THE BOTTOM OF YOUR EXISTING SideNav.css
-   Do not replace anything — just append.
-   ────────────────────────────────────────────────────────── */
-
-/* 1. Hide the sidebar (slide it off-screen) */
 .sidebar.sidebar-hidden {
   width: 0;
   min-width: 0;
@@ -284,7 +262,6 @@
   transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* 2. "Hide" button inside the sidebar — sits top-right */
 .sidebar-hide-btn {
   position: absolute;
   top: 12px;
@@ -310,7 +287,6 @@
   color: rgba(255, 255, 255, 0.9);
 }
 
-/* 3. Floating re-open tab — appears on the left edge when sidebar is hidden */
 .sidebar-open-btn {
   position: fixed;
   top: 50%;
@@ -336,10 +312,6 @@
   color: #ffffff;
   background: #4f7942;
 }
-
-/* ============================================
-   RESPONSIVE DESIGN
-   ============================================ */
 
 @media (max-width: 1200px) {
     :root {

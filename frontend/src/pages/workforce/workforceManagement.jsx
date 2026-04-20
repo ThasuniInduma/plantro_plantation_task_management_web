@@ -13,7 +13,6 @@ import { api } from '../../context/AppContext'; // ✅ import shared api instanc
 
 const API_BASE = '/api/workforce'; // ✅ relative path only
 
-// ─── Constants ────────────────────────────────────────────
 const EMPTY_WORKER_FORM = {
     name: '', email: '', phone: '', password: '', role: 'Worker',
     location: [], specialty: [], manHoursPerDay: '', field_id: ''
@@ -23,7 +22,6 @@ const EMPTY_TASK = {
     task_id: '', field_id: '', hoursRequired: '', dueDate: '', remarks: ''
 };
 
-// ─── Toast ────────────────────────────────────────────────
 const Toast = ({ message, type, onClose }) => (
     <div className={`toast toast-${type}`}>
         {type === 'success' ? <FiCheckCircle /> : <FiAlertCircle />}
@@ -32,7 +30,7 @@ const Toast = ({ message, type, onClose }) => (
     </div>
 );
 
-// ─── Password input with show/hide ───────────────────────
+//  Password input with show/hide 
 const PasswordInput = ({ value, onChange, placeholder = 'Enter password' }) => {
     const [show, setShow] = useState(false);
     return (
@@ -55,7 +53,7 @@ const PasswordInput = ({ value, onChange, placeholder = 'Enter password' }) => {
     );
 };
 
-// ─── Main component ───────────────────────────────────────
+//  Main component 
 const WorkforceManagement = ({ logo }) => {
     const [workers, setWorkers]               = useState([]);
     const [tasks, setTasks]                   = useState([]);
@@ -87,13 +85,11 @@ const WorkforceManagement = ({ logo }) => {
 
     const navigate = useNavigate();
 
-    // ── Toast ────────────────────────────────────────────
     const showToast = (message, type = 'success') => {
         setToast({ message, type });
         setTimeout(() => setToast(null), 3500);
     };
 
-    // ── Fetchers ─────────────────────────────────────────
     const fetchWorkers = useCallback(async () => {
         setLoading(true);
         try {
@@ -142,13 +138,12 @@ const WorkforceManagement = ({ logo }) => {
         }
     }, [selectedWorker, detailTab, fetchWorkerHistory]);
 
-    // ── Select worker ────────────────────────────────────
+    //  Select worker 
     const handleSelectWorker = (worker) => {
         setSelectedWorker(worker);
         setDetailTab('overview');
     };
 
-    // ── Form helpers ─────────────────────────────────────
     const setFormField = (key, value) => setForm(prev => ({ ...prev, [key]: value }));
 
     const toggleSpecialty = (spec) => {
@@ -160,14 +155,12 @@ const WorkforceManagement = ({ logo }) => {
         }));
     };
 
-    // ── Open Add modal ────────────────────────────────────
     const openAddModal = () => {
         setEditingWorker(null);
         setForm(EMPTY_WORKER_FORM);
         setShowAddModal(true);
     };
 
-    // ── Open Edit modal ───────────────────────────────────
     const handleEditWorker = (worker) => {
         setEditingWorker(worker);
         setForm({
@@ -187,7 +180,7 @@ const WorkforceManagement = ({ logo }) => {
     const validateWorkerForm = () => {
   const { name, email, phone, password, role, location, specialty, manHoursPerDay, field_id } = form;
 
-  // ── Name: letters and spaces only ──────────────────────
+  //  letters and spaces only 
   if (!name.trim()) {
     showToast('Full name is required.', 'error'); return false;
   }
@@ -198,7 +191,7 @@ const WorkforceManagement = ({ logo }) => {
     showToast('Name must be at least 2 characters.', 'error'); return false;
   }
 
-  // ── Email ───────────────────────────────────────────────
+  //  Email 
   if (!email.trim()) {
     showToast('Email is required.', 'error'); return false;
   }
@@ -206,12 +199,12 @@ const WorkforceManagement = ({ logo }) => {
     showToast('Please enter a valid email address.', 'error'); return false;
   }
 
-  // ── Phone (optional but if filled must be 10 digits) ───
+  //  Phone (optional but if filled must be 10 digits) 
   if (phone && !/^\d{10}$/.test(phone)) {
     showToast('Phone number must be exactly 10 digits (numbers only).', 'error'); return false;
   }
 
-  // ── Password ────────────────────────────────────────────
+  //  Password 
   if (!editingWorker && !password) {
     showToast('Password is required.', 'error'); return false;
   }
@@ -233,7 +226,7 @@ const WorkforceManagement = ({ logo }) => {
     }
   }
 
-  // ── Worker-specific ─────────────────────────────────────
+  //  Worker-specific 
   if (!editingWorker && role === 'Worker') {
     if (!location.length) {
       showToast('Please select at least one preferred field.', 'error'); return false;
@@ -246,7 +239,7 @@ const WorkforceManagement = ({ logo }) => {
     }
   }
 
-  // ── Supervisor-specific ─────────────────────────────────
+  //  Supervisor-specific 
   if (!editingWorker && role === 'Supervisor' && !field_id) {
     showToast('Please assign a field for the supervisor.', 'error'); return false;
   }
@@ -254,9 +247,9 @@ const WorkforceManagement = ({ logo }) => {
   return true;
 };
 
-    // ── Save: add or update ───────────────────────────────
+    //  Save, add or update 
     const handleSaveWorker = async () => {
-  if (!validateWorkerForm()) return;   // ✅ all validation in one place
+  if (!validateWorkerForm()) return;   // all validation in one place
 
   setSaving(true);
   try {
@@ -293,7 +286,7 @@ const WorkforceManagement = ({ logo }) => {
   }
 };
 
-    // ── Delete ────────────────────────────────────────────
+    //  Delete 
     const handleDeleteWorker = async (worker) => {
         if (!window.confirm(`Remove ${worker.name} from the workforce?`)) return;
         try {
@@ -306,7 +299,7 @@ const WorkforceManagement = ({ logo }) => {
         }
     };
 
-    // ── Toggle Status ─────────────────────────────────────
+    //  Toggle Status 
     const handleToggleStatus = async (worker) => {
         const newStatus = worker.status === 'active' ? 'INACTIVE' : 'ACTIVE';
         try {
@@ -320,7 +313,7 @@ const WorkforceManagement = ({ logo }) => {
         }
     };
 
-    // ── Toggle Availability ───────────────────────────────
+    //  Toggle Availability 
     const handleToggleAvailability = async (worker) => {
         if (!worker.worker_id) {
             showToast('Worker profile not yet set up.', 'error'); return;
@@ -340,7 +333,7 @@ const WorkforceManagement = ({ logo }) => {
         }
     };
 
-    // ── Promote to Supervisor ─────────────────────────────
+    //  Promote to Supervisor 
     const openPromoteModal = () => {
         setPromoteFieldId('');
         setShowPromoteModal(true);
@@ -367,7 +360,7 @@ const WorkforceManagement = ({ logo }) => {
         }
     };
 
-    // ── Supervisor field assignment ───────────────────────
+    //  Supervisor field assignment 
     const openFieldModal = (worker) => {
         setSupervisorFieldId(worker.supervisorFieldId?.toString() || '');
         setShowFieldModal(true);
@@ -396,7 +389,7 @@ const WorkforceManagement = ({ logo }) => {
         }
     };
 
-    // ── Demote Supervisor ─────────────────────────────────
+    //  Demote Supervisor 
     const handleDemoteSupervisor = async (userId) => {
         if (!window.confirm("Are you sure you want to demote this supervisor to a worker?")) return;
         try {
@@ -410,7 +403,7 @@ const WorkforceManagement = ({ logo }) => {
         }
     };
 
-    // ── Assign Task ───────────────────────────────────────
+    //  Assign Task 
     const handleAssignTask = async () => {
         const { task_id, field_id, hoursRequired, dueDate } = taskAssignment;
         if (!task_id || !field_id || !dueDate) {
@@ -436,7 +429,6 @@ const WorkforceManagement = ({ logo }) => {
         }
     };
 
-    // ── Close all modals ──────────────────────────────────
     const closeModals = () => {
         setShowAddModal(false);
         setShowAssignModal(false);
@@ -449,7 +441,6 @@ const WorkforceManagement = ({ logo }) => {
         setSupervisorFieldId('');
     };
 
-    // ── Filter ────────────────────────────────────────────
     const filteredWorkers = workers.filter(w => {
         const q = searchTerm.toLowerCase();
         const matchSearch = w.name?.toLowerCase().includes(q) ||
@@ -459,7 +450,6 @@ const WorkforceManagement = ({ logo }) => {
         return matchSearch && matchStatus && matchRole;
     });
 
-    // ── Helpers ───────────────────────────────────────────
     const statusBadge = (status) => (
         <span className={`status-badge ${status}`}>{status}</span>
     );
@@ -485,7 +475,6 @@ const WorkforceManagement = ({ logo }) => {
         ),
     ];
 
-    // ─────────────────────────────────────────────────────
     return (
         <div className="workforce-management-layout">
             <SideNav
@@ -522,7 +511,7 @@ const WorkforceManagement = ({ logo }) => {
                     ) : (
                         <div className="workforce-management-container">
 
-                            {/* ── LEFT PANEL ──────────────────── */}
+                            {/* LEFT PANEL  */}
                             <div className="workers-panel">
                                 <div className="panel-header">
                                     <div className="panel-title-row">
@@ -631,7 +620,7 @@ const WorkforceManagement = ({ logo }) => {
                                 </div>
                             </div>
 
-                            {/* ── RIGHT PANEL ─────────────────── */}
+                            {/*  RIGHT PANEL  */}
                             <div className="details-panel">
                                 {selectedWorker ? (
                                     <>
@@ -889,7 +878,7 @@ const WorkforceManagement = ({ logo }) => {
                                         placeholder="Full name"
                                         value={form.name}
                                         onChange={e => {
-    // Block numbers and symbols while typing
+                                            // Block numbers and symbols while typing
                                             const val = e.target.value;
                                             if (/^[a-zA-Z\s]*$/.test(val)) setFormField('name', val);
                                         }}
@@ -906,7 +895,7 @@ const WorkforceManagement = ({ logo }) => {
                                             const val = e.target.value.replace(/\D/g, '');
                                             setFormField('phone', val);
                                         }}
-                                                                            />
+                                    />
                                 </div>
                             </div>
 

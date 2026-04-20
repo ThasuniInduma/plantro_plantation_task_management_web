@@ -1,9 +1,7 @@
 import { db } from "../config/db.js";
 import bcrypt from "bcrypt";
 
-/* =========================================================
-   HELPER: Get Role ID
-========================================================= */
+  //  Get Role ID
 const getRoleId = async (conn, roleName) => {
   const [rows] = await conn.query(
     "SELECT role_id FROM roles WHERE role_name = ?",
@@ -13,9 +11,7 @@ const getRoleId = async (conn, roleName) => {
   return rows[0].role_id;
 };
 
-/* =========================================================
-   GET ALL WORKERS + SUPERVISORS
-========================================================= */
+  // GET ALL WORKERS + SUPERVISORS
 export const getAllWorkers = async (req, res) => {
   try {
     const [rows] = await db.query(`
@@ -68,7 +64,6 @@ export const getAllWorkers = async (req, res) => {
           ? Math.round((stats[0].completed / assignedTasks) * 100)
           : 0;
 
-        // Latest availability
         const [avail] = await db.query(`
           SELECT status FROM worker_availability
           WHERE worker_id = ?
@@ -115,9 +110,7 @@ export const getAllWorkers = async (req, res) => {
   }
 };
 
-/* =========================================================
-   CREATE WORKER OR SUPERVISOR
-========================================================= */
+  // CREATE WORKER OR SUPERVISOR
 export const createWorker = async (req, res) => {
   const conn = await db.getConnection();
   try {
@@ -132,10 +125,10 @@ export const createWorker = async (req, res) => {
       location,
       specialty = [],
       manHoursPerDay = 8,
-      field_id,            // required for Supervisor
+      field_id,            
     } = req.body;
 
-    // ── Validation ──────────────────────────────────────────
+    // Validation
     if (!full_name || !email || !password) {
       throw new Error("Name, email, and password are required");
     }
@@ -149,19 +142,19 @@ export const createWorker = async (req, res) => {
       throw new Error("A field assignment is required for supervisors");
     }
 
-    // ── Duplicate email check ────────────────────────────────
+    //Duplicate email check
     const [exists] = await conn.query(
       "SELECT user_id FROM users WHERE email = ?",
       [email]
     );
     if (exists.length) throw new Error("Email already registered");
 
-    // ── Hash password ────────────────────────────────────────
+    // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const roleId = await getRoleId(conn, roleName);
 
-    // ── Insert into users ────────────────────────────────────
+    // Insert into users
     const [userRes] = await conn.query(
       `INSERT INTO users (role_id, full_name, email, phone, password, status)
        VALUES (?, ?, ?, ?, ?, 'ACTIVE')`,
@@ -169,7 +162,7 @@ export const createWorker = async (req, res) => {
     );
     const userId = userRes.insertId;
 
-    // ── Role-specific insert ─────────────────────────────────
+    //Role-specific insert 
     if (roleName === "WORKER") {
       await conn.query(
         `INSERT INTO workers
@@ -223,9 +216,7 @@ export const createWorker = async (req, res) => {
   }
 };
 
-/* =========================================================
-   UPDATE WORKER OR SUPERVISOR  (no password change here)
-========================================================= */
+  // UPDATE WORKER OR SUPERVISOR  (no password change here)
 export const updateWorker = async (req, res) => {
   const conn = await db.getConnection();
 
@@ -245,9 +236,7 @@ export const updateWorker = async (req, res) => {
       password,
     } = req.body;
 
-    /* =====================================================
-       1. UPDATE USERS TABLE (PARTIAL SAFE UPDATE)
-    ===================================================== */
+    // UPDATE USERS TABLE 
     const userUpdates = [];
     const userValues = [];
 
@@ -289,54 +278,50 @@ export const updateWorker = async (req, res) => {
       );
     }
 
-    /* =====================================================
-       2. WORKER TABLE UPDATE (NO STRICT VALIDATION ON UPDATE)
-    ===================================================== */
+    // WORKER TABLE UPDATE
     if (!roleName || roleName === "WORKER") {
 
   const [existingRows] = await conn.query(
-  "SELECT * FROM workers WHERE user_id = ?",
-  [userId]
-);
+    "SELECT * FROM workers WHERE user_id = ?",
+    [userId]
+  );
 
-const existing = existingRows[0];
-const isCreate = !existing;
+  const existing = existingRows[0];
+  const isCreate = !existing;
 
-const finalLocation =
-  location !== undefined ? location : JSON.parse(existing?.preferred_locations || "[]");
+  const finalLocation =
+    location !== undefined ? location : JSON.parse(existing?.preferred_locations || "[]");
 
-const finalSpecialty =
-  specialty !== undefined ? specialty : JSON.parse(existing?.skills || "[]");
+  const finalSpecialty =
+    specialty !== undefined ? specialty : JSON.parse(existing?.skills || "[]");
 
-const finalHours =
-  manHoursPerDay !== undefined ? manHoursPerDay : existing?.max_daily_hours;
+  const finalHours =
+    manHoursPerDay !== undefined ? manHoursPerDay : existing?.max_daily_hours;
 
-// validation only on create
-if (isCreate) {
-  if (!finalLocation.length || !finalSpecialty.length || !finalHours) {
-    throw new Error("Location, specialty, and hours/day are required for workers");
+  // validation only on create
+  if (isCreate) {
+    if (!finalLocation.length || !finalSpecialty.length || !finalHours) {
+      throw new Error("Location, specialty, and hours/day are required for workers");
+    }
   }
-}
 
-await conn.query(
-  `INSERT INTO workers 
-    (user_id, skills, preferred_locations, max_daily_hours, profile_completed)
-   VALUES (?, ?, ?, ?, 1)
-   ON DUPLICATE KEY UPDATE
-     skills = VALUES(skills),
-     preferred_locations = VALUES(preferred_locations),
-     max_daily_hours = VALUES(max_daily_hours)`,
-  [
-    userId,
-    JSON.stringify(finalSpecialty),
-    JSON.stringify(finalLocation.map(Number)),
-    parseInt(finalHours || 8),
-  ]
-);
+  await conn.query(
+    `INSERT INTO workers 
+      (user_id, skills, preferred_locations, max_daily_hours, profile_completed)
+    VALUES (?, ?, ?, ?, 1)
+    ON DUPLICATE KEY UPDATE
+      skills = VALUES(skills),
+      preferred_locations = VALUES(preferred_locations),
+      max_daily_hours = VALUES(max_daily_hours)`,
+    [
+      userId,
+      JSON.stringify(finalSpecialty),
+      JSON.stringify(finalLocation.map(Number)),
+      parseInt(finalHours || 8),
+    ]
+  );
 }
-    /* =====================================================
-       3. SUPERVISOR UPDATE
-    ===================================================== */
+    // SUPERVISOR UPDATE
     if (roleName === "SUPERVISOR") {
       if (!field_id) {
         throw new Error("Field is required for Supervisor");
@@ -367,9 +352,8 @@ await conn.query(
     conn.release();
   }
 };
-/* =========================================================
-   DELETE WORKER
-========================================================= */
+
+  // DELETE WORKER
 export const deleteWorker = async (req, res) => {
   const conn = await db.getConnection();
   try {
@@ -377,7 +361,6 @@ export const deleteWorker = async (req, res) => {
 
     const { userId } = req.params;
 
-    // Remove role-specific rows first (FK constraints)
     await conn.query("DELETE FROM workers     WHERE user_id = ?", [userId]);
     await conn.query("DELETE FROM supervisors WHERE user_id = ?", [userId]);
     await conn.query("DELETE FROM users       WHERE user_id = ?", [userId]);
@@ -393,9 +376,7 @@ export const deleteWorker = async (req, res) => {
   }
 };
 
-/* =========================================================
-   UPDATE WORKER ACCOUNT STATUS  (ACTIVE / INACTIVE)
-========================================================= */
+  // UPDATE WORKER ACCOUNT STATUS  (ACTIVE / INACTIVE)
 export const updateWorkerStatus = async (req, res) => {
   try {
     const { userId } = req.params;
@@ -417,13 +398,11 @@ export const updateWorkerStatus = async (req, res) => {
   }
 };
 
-/* =========================================================
-   PROMOTE WORKER → SUPERVISOR
+/* PROMOTE WORKER → SUPERVISOR
    - Removes worker row
    - Creates supervisor row
    - Updates role in users table
-   - Assigns field
-========================================================= */
+   - Assigns field */
 export const promoteWorkerToSupervisor = async (req, res) => {
   const conn = await db.getConnection();
 
@@ -437,7 +416,7 @@ export const promoteWorkerToSupervisor = async (req, res) => {
       throw new Error("A field assignment is required when promoting to Supervisor");
     }
 
-    // 1. Validate user is worker
+    // Validate user is worker
     const [userRows] = await conn.query(
       `SELECT u.user_id, r.role_name
        FROM users u
@@ -449,7 +428,7 @@ export const promoteWorkerToSupervisor = async (req, res) => {
     if (!userRows.length) throw new Error("User not found");
     if (userRows[0].role_name !== "WORKER") throw new Error("User is not a Worker");
 
-    // 2. Upgrade role
+    //  Upgrade role
     const supervisorRoleId = await getRoleId(conn, "SUPERVISOR");
 
     await conn.query(
@@ -457,10 +436,10 @@ export const promoteWorkerToSupervisor = async (req, res) => {
       [supervisorRoleId, userId]
     );
 
-    // 3. Remove worker record
+    // Remove worker record
     await conn.query("DELETE FROM workers WHERE user_id = ?", [userId]);
 
-    // 4. Insert supervisor row (OK to keep mapping table)
+    // Insert supervisor row 
     await conn.query(
       `INSERT INTO supervisors (user_id, field_id)
        VALUES (?, ?)
@@ -491,7 +470,7 @@ export const demoteSupervisorToWorker = async (req, res) => {
 
     const { userId } = req.params;
 
-    // 1. Check user exists and is supervisor
+    // Check user exists and is supervisor
     const [userRows] = await conn.query(
       `SELECT u.user_id, r.role_name
        FROM users u
@@ -506,13 +485,13 @@ export const demoteSupervisorToWorker = async (req, res) => {
     }
 
 
-    // 3. Remove supervisor mapping
+    // Remove supervisor mapping
     await conn.query(
       "DELETE FROM supervisors WHERE user_id = ?",
       [userId]
     );
 
-    // 4. Change role → WORKER
+    // Change role to WORKER
     const workerRoleId = await getRoleId(conn, "WORKER");
 
     await conn.query(
@@ -520,7 +499,7 @@ export const demoteSupervisorToWorker = async (req, res) => {
       [workerRoleId, userId]
     );
 
-    // 5. Create worker record if not exists
+    //  Create worker record if not exists
     await conn.query(
       `INSERT INTO workers (user_id, skills, preferred_locations, max_daily_hours, profile_completed)
        VALUES (?, '[]', '[]', 8, 0)
@@ -543,9 +522,7 @@ export const demoteSupervisorToWorker = async (req, res) => {
     conn.release();
   }
 };
-/* =========================================================
-   UPDATE SUPERVISOR FIELD ASSIGNMENT
-========================================================= */
+  // UPDATE SUPERVISOR FIELD ASSIGNMENT
 export const updateSupervisorField = async (req, res) => {
   const conn = await db.getConnection();
 
@@ -557,13 +534,11 @@ export const updateSupervisorField = async (req, res) => {
 
     if (!field_id) throw new Error("field_id required");
 
-    // Remove old mapping
       await conn.query(
         "DELETE FROM supervisors WHERE user_id = ?",
         [userId]
       );
 
-    // update supervisor mapping
     await conn.query(
       `INSERT INTO supervisors (user_id, field_id)
        VALUES (?, ?)
@@ -571,7 +546,6 @@ export const updateSupervisorField = async (req, res) => {
       [userId, field_id]
     );
 
-    // 🔥 FIXED
     await conn.query(
       "UPDATE fields SET supervisor_id = ? WHERE field_id = ?",
       [userId, field_id]
@@ -589,9 +563,7 @@ export const updateSupervisorField = async (req, res) => {
   }
 };
 
-/* =========================================================
-   UPDATE WORKER AVAILABILITY
-========================================================= */
+  // UPDATE WORKER AVAILABILITY
 export const updateWorkerAvailability = async (req, res) => {
   try {
     const { workerId } = req.params;
@@ -603,7 +575,6 @@ export const updateWorkerAvailability = async (req, res) => {
 
     const today = new Date().toISOString().split("T")[0];
 
-    // Upsert for today
     await db.query(
       `INSERT INTO worker_availability (worker_id, date, available_hours, status)
        VALUES (?, ?, 0, ?)
@@ -618,9 +589,7 @@ export const updateWorkerAvailability = async (req, res) => {
   }
 };
 
-/* =========================================================
-   GET WORKER TASK HISTORY  (last 20)
-========================================================= */
+  // GET WORKER TASK HISTORY 
 export const getWorkerTasks = async (req, res) => {
   try {
     const { workerId } = req.params;
@@ -651,9 +620,7 @@ export const getWorkerTasks = async (req, res) => {
   }
 };
 
-/* =========================================================
-   GET ALL TASKS  (for assign-task dropdown)
-========================================================= */
+  // GET ALL TASKS  (for assign-task dropdown)
 export const getAllTasks = async (req, res) => {
   try {
     const [rows] = await db.query(
@@ -666,9 +633,7 @@ export const getAllTasks = async (req, res) => {
   }
 };
 
-/* =========================================================
-   GET ALL FIELDS  (for assign-task + supervisor dropdowns)
-========================================================= */
+  // GET ALL FIELDS  (for assign-task + supervisor dropdowns)
 export const getAllFields = async (req, res) => {
   try {
     const [rows] = await db.query(`
@@ -693,9 +658,7 @@ export const getAllFields = async (req, res) => {
   }
 };
 
-/* =========================================================
-   GET UNASSIGNED FIELDS  (no supervisor yet)
-========================================================= */
+  // GET UNASSIGNED FIELDS  (no supervisor yet)
 export const getUnassignedFields = async (req, res) => {
   try {
     const [rows] = await db.query(`
@@ -717,9 +680,7 @@ export const getUnassignedFields = async (req, res) => {
   }
 };
 
-/* =========================================================
-   ASSIGN TASK TO WORKER
-========================================================= */
+  // ASSIGN TASK TO WORKER
 export const assignTask = async (req, res) => {
   try {
     const {

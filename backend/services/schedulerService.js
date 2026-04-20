@@ -8,7 +8,7 @@ export const generateSchedules = async () => {
 
     console.log("Running scheduler...");
 
-    // 1. Get all fields with crops
+    // Get all fields with crops
     const [fields] = await conn.query(`
       SELECT field_id, crop_id
       FROM fields
@@ -17,7 +17,7 @@ export const generateSchedules = async () => {
     for (const field of fields) {
       const { field_id, crop_id } = field;
 
-      // 2. Get all tasks for this crop
+      // Get all tasks for this crop
       const [cropTasks] = await conn.query(`
         SELECT *
         FROM crop_tasks
@@ -26,14 +26,14 @@ export const generateSchedules = async () => {
 
       for (const task of cropTasks) {
 
-        // 3. Check if schedule already exists
+        // Check if schedule already exists
         const [existing] = await conn.query(`
           SELECT schedule_id
           FROM field_task_schedule
           WHERE field_id = ? AND task_id = ?
         `, [field_id, task.task_id]);
 
-        // 4. If NOT exists → create it
+        // If NOT exists then create it
         if (existing.length === 0) {
 
           const today = new Date();

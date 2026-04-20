@@ -5,7 +5,7 @@ import { db } from "../config/db.js";
 
 const router = express.Router();
 
-// ─── Helper: field filter based on role ─────────────────────────────────────
+// field filter based on role 
 const getFieldFilter = (user, alias = "ta") => {
   if (user.role_name === "supervisor") {
     return { clause: `AND ${alias}.field_id IN (SELECT field_id FROM supervisors WHERE user_id = ?)`, param: user.id };
@@ -13,7 +13,7 @@ const getFieldFilter = (user, alias = "ta") => {
   return { clause: "", param: null };
 };
 
-// ─── GET /api/reports/summary ────────────────────────────────────────────────
+//get report summary
 router.get("/summary", authenticate, authorize("OWNER", "SUPERVISOR"), async (req, res) => {
   try {
     const ff = getFieldFilter(req.user);
@@ -104,7 +104,7 @@ router.get("/summary", authenticate, authorize("OWNER", "SUPERVISOR"), async (re
   }
 });
 
-// ─── GET /api/reports/task-completion ────────────────────────────────────────
+// get task completion status
 router.get("/task-completion", authenticate, authorize("OWNER", "SUPERVISOR"), async (req, res) => {
   try {
     const { field_id, start_date, end_date } = req.query;
@@ -191,7 +191,7 @@ router.get("/task-completion", authenticate, authorize("OWNER", "SUPERVISOR"), a
   }
 });
 
-// ─── GET /api/reports/worker-performance ─────────────────────────────────────
+// get worker performance
 router.get("/worker-performance", authenticate, authorize("OWNER", "SUPERVISOR"), async (req, res) => {
   try {
     const { field_id, start_date, end_date } = req.query;
@@ -255,7 +255,7 @@ router.get("/worker-performance", authenticate, authorize("OWNER", "SUPERVISOR")
   }
 });
 
-// ─── GET /api/reports/field-status ───────────────────────────────────────────
+// get field status
 router.get("/field-status", authenticate, authorize("OWNER", "SUPERVISOR"), async (req, res) => {
   try {
     const ff = getFieldFilter(req.user, "f");
@@ -318,8 +318,7 @@ router.get("/field-status", authenticate, authorize("OWNER", "SUPERVISOR"), asyn
   }
 });
 
-// ─── GET /api/reports/analytics ──────────────────────────────────────────────
-// Charts data: task status distribution, daily trend, top workers, field comparison
+// task status distribution, daily trend, top workers, field comparison
 router.get("/analytics", authenticate, authorize("OWNER", "SUPERVISOR"), async (req, res) => {
   try {
     const ff = getFieldFilter(req.user);
@@ -329,7 +328,7 @@ router.get("/analytics", authenticate, authorize("OWNER", "SUPERVISOR"), async (
     const params4 = ff.param ? [ff.param] : [];
     const params5 = ff.param ? [ff.param] : [];
 
-    // 1. Status distribution (donut chart)
+    // Status distribution 
     const [statusDist] = await db.query(`
       SELECT status, COUNT(*) AS count
       FROM task_assignments ta
@@ -337,7 +336,7 @@ router.get("/analytics", authenticate, authorize("OWNER", "SUPERVISOR"), async (
       GROUP BY status
     `, params);
 
-    // 2. Daily task trend — last 14 days
+    //  Daily task trend — last 14 days
     const [dailyTrend] = await db.query(`
       SELECT
         DATE(assigned_date) AS date,
@@ -351,7 +350,7 @@ router.get("/analytics", authenticate, authorize("OWNER", "SUPERVISOR"), async (
       ORDER BY date ASC
     `, params2);
 
-    // 3. Top 5 workers by completion
+    //  Top 5 workers by completion
     const [topWorkers] = await db.query(`
       SELECT
         u.full_name,
@@ -368,7 +367,7 @@ router.get("/analytics", authenticate, authorize("OWNER", "SUPERVISOR"), async (
       LIMIT 5
     `, params3);
 
-    // 4. Field comparison (bar chart)
+    // Field comparison (bar chart)
     const [fieldComparison] = await db.query(`
       SELECT
         f.field_name,
@@ -383,7 +382,7 @@ router.get("/analytics", authenticate, authorize("OWNER", "SUPERVISOR"), async (
       ORDER BY total DESC
     `, params4);
 
-    // 5. Task type breakdown
+    // Task type breakdown
     const [taskBreakdown] = await db.query(`
       SELECT
         t.task_name,
@@ -397,7 +396,7 @@ router.get("/analytics", authenticate, authorize("OWNER", "SUPERVISOR"), async (
       ORDER BY total DESC
     `, params5);
 
-    // 6. Weekly summary for current week vs last week
+    // Weekly summary for current week vs last week
     const [weeklyComp] = await db.query(`
       SELECT
         CASE
@@ -451,7 +450,7 @@ router.get("/analytics", authenticate, authorize("OWNER", "SUPERVISOR"), async (
   }
 });
 
-// ─── GET /api/reports/overdue ─────────────────────────────────────────────────
+// reports of overdue tasks
 router.get("/overdue", authenticate, authorize("OWNER", "SUPERVISOR"), async (req, res) => {
   try {
     const ff = getFieldFilter(req.user, "fts");
@@ -492,7 +491,7 @@ router.get("/overdue", authenticate, authorize("OWNER", "SUPERVISOR"), async (re
   }
 });
 
-// ─── GET /api/reports/fields-list ────────────────────────────────────────────
+// fields list report
 router.get("/fields-list", authenticate, authorize("OWNER", "SUPERVISOR"), async (req, res) => {
   try {
     let query = "SELECT field_id, field_name FROM fields ORDER BY field_name";
@@ -508,7 +507,7 @@ router.get("/fields-list", authenticate, authorize("OWNER", "SUPERVISOR"), async
   }
 });
 
-// ─── GET /api/reports/incident-reports ───────────────────────────────────────
+// incidents reports
 router.get("/incident-reports", authenticate, authorize("OWNER", "SUPERVISOR"), async (req, res) => {
   try {
     const ff = getFieldFilter(req.user, "ir");
@@ -542,7 +541,7 @@ router.get("/incident-reports", authenticate, authorize("OWNER", "SUPERVISOR"), 
   }
 });
 
-// ─── GET /api/reports/harvesting-reports ─────────────────────────────────────
+// harvesting reports
 router.get("/harvesting-reports", authenticate, authorize("OWNER", "SUPERVISOR"), async (req, res) => {
   try {
     const ff = getFieldFilter(req.user, "hr");

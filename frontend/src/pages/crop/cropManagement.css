@@ -31,7 +31,6 @@
     --header-height: 80px;
 }
 
-/* ── Layout ── */
 .crop-management-layout {
     display: flex;
     min-height: 100vh;
@@ -94,7 +93,6 @@
 }
 .content-body { flex: 1; padding: 2rem; }
 
-/* ── Two-column grid ── */
 .crop-management-container {
     display: grid;
     grid-template-columns: 400px 1fr;
@@ -102,7 +100,6 @@
     height: calc(100vh - var(--header-height) - 4rem);
 }
 
-/* ── Crops Panel ── */
 .crops-panel {
     display: flex;
     flex-direction: column;
@@ -127,7 +124,11 @@
     color: var(--text-primary);
     margin: 0;
 }
-.panel-subtitle { font-size: 0.8125rem; color: var(--text-secondary); margin: 0.2rem 0 0 0; }
+.panel-subtitle { 
+    font-size: 0.8125rem; 
+    color: var(--text-secondary); 
+    margin: 0.2rem 0 0 0; 
+}
 .tasks-panel-header { align-items: center; }
 .tasks-header-info { display: flex; flex-direction: column; }
 .crop-name-highlight { color: var(--accent-leaf); }
@@ -221,7 +222,6 @@
 .icon-btn.delete { color: var(--status-error); }
 .icon-btn.delete:hover { background: var(--status-error); color: white; border-color: var(--status-error); }
 
-/* ── Detail / Tasks Panel ── */
 .tasks-panel {
     display: flex; flex-direction: column;
     background: var(--bg-secondary);
@@ -231,7 +231,6 @@
     overflow: hidden;
 }
 
-/* ── Section headers (fields + tasks) ── */
 .fields-section {
     padding: 0 1.5rem 1.25rem;
     border-bottom: 1px solid rgba(0,0,0,0.06);
@@ -326,7 +325,6 @@
 }
 .field-supervisor .meta-icon { color: var(--field-accent, #0288d1); flex-shrink: 0; }
 
-/* ── Tasks grid ── */
 .tasks-grid {
     flex: 1;
     overflow-y: auto;
@@ -341,7 +339,6 @@
 .tasks-grid::-webkit-scrollbar-track { background: transparent; }
 .tasks-grid::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 3px; }
 
-/* ── Task Card ── */
 .task-card {
     background: var(--bg-secondary);
     border-radius: var(--radius-lg);
@@ -399,7 +396,6 @@
 .meta-pill strong { color: var(--accent-leaf); }
 .meta-icon { color: var(--task-accent, var(--accent-bright)); font-size: 0.875rem; flex-shrink: 0; }
 
-/* ── Empty States ── */
 .empty-state {
     display: flex; flex-direction: column;
     align-items: center; justify-content: center;
@@ -429,7 +425,6 @@
 }
 .add-btn-secondary:hover { background: var(--accent-bright); color: white; }
 
-/* ── Modal ── */
 .modal-overlay {
     position: fixed; inset: 0;
     background: rgba(0,0,0,0.45);
@@ -562,7 +557,6 @@
 }
 .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(124,179,66,0.35); }
 
-/* ── Task suggestion dropdown ── */
 .task-input-wrapper { position: relative; }
 .suggestions-dropdown {
     position: absolute;
@@ -626,7 +620,6 @@
     white-space: nowrap;
 }
 
-/* ── Responsive ── */
 @media (max-width: 1400px) {
     .crop-management-container { grid-template-columns: 340px 1fr; }
 }

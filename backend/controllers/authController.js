@@ -3,14 +3,12 @@ import jwt from "jsonwebtoken";
 import { db } from "../config/db.js";
 import { transporter } from "../config/mailer.js";
 
-/* =========================
-   REGISTER
-   ========================= */
+// REGISTER
 export const register = async (req, res) => {
   const { name, email, phone, password } = req.body;
 
   try {
-    // ── Validations ──────────────────────────────────────────
+    // Validations
     if (!name || !email || !phone || !password) {
       return res.status(400).json({ success: false, message: "All fields are required" });
     }
@@ -20,7 +18,7 @@ export const register = async (req, res) => {
       return res.status(400).json({ success: false, message: "Invalid email address" });
     }
 
-    // ✅ Phone: exactly 10 digits, no letters or symbols
+    // Phone number hasexactly 10 digits, no letters or symbols
     const phoneRegex = /^\d{10}$/;
     if (!phoneRegex.test(phone)) {
       return res.status(400).json({ success: false, message: "Phone number must be exactly 10 digits" });
@@ -31,7 +29,7 @@ export const register = async (req, res) => {
       return res.status(400).json({ success: false, message: "Password must have uppercase, lowercase, number, and special character" });
     }
 
-    // ── Check existing ───────────────────────────────────────
+    // Check existing
     const [existing] = await db.query(
       "SELECT email FROM users WHERE email=? UNION SELECT email FROM temp_users WHERE email=?",
       [email, email]
@@ -39,8 +37,6 @@ export const register = async (req, res) => {
     if (existing.length) {
       return res.status(400).json({ success: false, message: "User already exists" });
     }
-
-    // ... rest of your register code unchanged
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const expire = Date.now() + 10 * 60 * 1000;
@@ -70,9 +66,7 @@ export const register = async (req, res) => {
   }
 };
 
-/* =========================
-   VERIFY ACCOUNT
-   ========================= */
+//VERIFY ACCOUNT
 export const verifyAccount = async (req, res) => {
   const { otp, role } = req.body; // role can be ADMIN, SUPERVISOR, WORKER
 
@@ -105,9 +99,7 @@ export const verifyAccount = async (req, res) => {
   }
 };
 
-/* =========================
-   RESEND OTP
-   ========================= */
+  // RESEND OTP
 export const resendOTP = async (req, res) => {
   const { email } = req.body;
 
@@ -144,14 +136,12 @@ export const resendOTP = async (req, res) => {
   }
 };
 
-/* =========================
-   LOGIN
-   ========================= */
+  // LOGIN
 export const login = async (req, res) => {
     const { email, password } = req.body;
 
   try {
-    // ── Validations ──────────────────────────────────────────
+    // Validations
     if (!email || !password) {
       return res.status(400).json({ success: false, message: "Email and password are required" });
     }
@@ -198,9 +188,7 @@ return res.status(200).json({
   }
 };
 
-/* =========================
-   GET USER (Protected)
-   ========================= */
+  // GET USER
 export const getUser = async (req, res) => {
   try {
     const [rows] = await db.query(
@@ -222,9 +210,8 @@ export const getUser = async (req, res) => {
     res.status(500).json({ success: false, message: "Server error" });
   }
 };
-/* =========================
-   SEND RESET OTP
-   ========================= */
+
+  // SEND RESET OTP
 export const sendResetOTP = async (req, res) => {
   const { email } = req.body;
 
@@ -259,9 +246,7 @@ export const sendResetOTP = async (req, res) => {
   }
 };
 
-/* =========================
-   RESET PASSWORD
-   ========================= */
+  // RESET PASSWORD
 export const resetPassword = async (req, res) => {
   const { email, password, otp } = req.body;
 

@@ -9,7 +9,7 @@ const getLocalDate = () => {
   return `${year}-${month}-${day}`;
 };
 
-// ── GET /api/schedule/today
+// get schedule for today
 export const getTodaySchedule = async (req, res) => {
   try {
     const supervisorUserId = req.user?.id;
@@ -85,7 +85,7 @@ export const getTodaySchedule = async (req, res) => {
   }
 };
 
-// ── GET /api/schedule/by-date?date=2024-04-19
+//  get schedule by date
 export const getScheduleByDate = async (req, res) => {
   try {
     const supervisorUserId = req.user?.id;
@@ -160,6 +160,7 @@ export const getScheduleByDate = async (req, res) => {
   }
 };
 
+// get upcomming schedules
 export const getUpcomingSchedule = async (req, res) => {
   try {
     const supervisorUserId = req.user?.id;
@@ -201,7 +202,7 @@ export const getUpcomingSchedule = async (req, res) => {
   }
 };
 
-// ── POST /api/schedule/assign
+// assigned worker to tasks
 export const assignWorkerToScheduledTask = async (req, res) => {
   try {
     const supervisorUserId = req.user?.id;
@@ -304,7 +305,6 @@ export const assignWorkerToScheduledTask = async (req, res) => {
       });
     }
 
-    // ✅ CORE LOGIC FIX
     const workersNeeded = Math.ceil(
       sched.estimated_man_hours / expected_hours_per_worker
     );
@@ -384,7 +384,7 @@ export const assignWorkerToScheduledTask = async (req, res) => {
   }
 };
 
-// ── POST /api/schedule/unassign
+// get unassigned workers
 export const unassignWorker = async (req, res) => {
   try {
     const supervisorUserId = req.user?.id;
@@ -431,7 +431,6 @@ export const unassignWorker = async (req, res) => {
        <p>You have been unassigned from task: <b>${assign.task_name}</b></p>`
     );
 
-    // socket
     if (req.app?.get("io")) {
       req.app.get("io").to(`user_${assign.worker_user_id}`).emit("notification", {
         title: "📅 Task Unassigned",
@@ -447,7 +446,7 @@ export const unassignWorker = async (req, res) => {
   }
 };
 
-// ── POST /api/schedule/update-status
+// update task assignment status
 export const updateAssignmentStatus = async (req, res) => {
   try {
     const supervisorUserId = req.user?.id;
@@ -525,7 +524,6 @@ export const updateAssignmentStatus = async (req, res) => {
        <p>Your task "${assign.task_name}" has been ${statusMsg}.</p>`
     );
 
-    // socket
     if (req.app?.get("io")) {
       req.app.get("io").to(`user_${assign.worker_user_id}`).emit("notification", {
         title: "📅 Task Status Updated",
@@ -541,7 +539,7 @@ export const updateAssignmentStatus = async (req, res) => {
   }
 };
 
-// ── POST /api/schedule/pause
+// pause task
 export const pauseTask = async (req, res) => {
   try {
     const supervisorUserId = req.user?.id;
@@ -581,7 +579,7 @@ export const pauseTask = async (req, res) => {
   }
 };
 
-// ── POST /api/schedule/worker-complete
+// worke mark task status
 export const workerMarkComplete = async (req, res) => {
   const conn = await db.getConnection();
   try {
@@ -619,14 +617,14 @@ export const workerMarkComplete = async (req, res) => {
       );
       await createNotification(
         sup.user_id,
-        "✅ Task Ready for Verification",
+        " Task Ready for Verification",
         `A worker completed "${taskInfo?.task_name}" at ${taskInfo?.field_name}. Please verify.`,
         "task_completed",
         assignment_id
       );
       if (req.app?.get('io')) {
         req.app.get('io').to(`user_${sup.user_id}`).emit('notification', {
-          title: "✅ Task Ready for Verification",
+          title: " Task Ready for Verification",
           message: `A worker completed "${taskInfo?.task_name}" at ${taskInfo?.field_name}.`,
           type: "task_completed"
         });
@@ -643,7 +641,7 @@ export const workerMarkComplete = async (req, res) => {
   }
 };
 
-// ── POST /api/schedule/verify
+// supervisor verify task status
 export const supervisorVerify = async (req, res) => {
   const conn = await db.getConnection();
   try {
@@ -658,7 +656,6 @@ export const supervisorVerify = async (req, res) => {
       return res.status(400).json({ error: "assignment_id and action are required" });
     }
 
-    // Resolve schedule_id if not provided — look it up from task_id + field_id
     if (!schedule_id && task_id && field_id) {
       const [schRows] = await conn.query(
         `SELECT schedule_id FROM field_task_schedule WHERE task_id=? AND field_id=?`,
@@ -668,7 +665,6 @@ export const supervisorVerify = async (req, res) => {
     }
 
     if (!schedule_id) {
-      // Try to get it from the assignment itself
       const [aRows] = await conn.query(
         `SELECT task_id, field_id FROM task_assignments WHERE assignment_id=?`,
         [assignment_id]
@@ -761,7 +757,7 @@ export const supervisorVerify = async (req, res) => {
             const w = aInfo[0];
             await createNotification(
               w.user_id,
-              `✅ Task Approved: ${w.task_name}`,
+              ` Task Approved: ${w.task_name}`,
               `Your task "${w.task_name}" at ${w.field_name} was approved. Next due: ${nextDueStr}`,
               "task_verified",
               assignment_id
@@ -771,7 +767,7 @@ export const supervisorVerify = async (req, res) => {
             );
             if (req.app?.get('io')) {
               req.app.get('io').to(`user_${w.user_id}`).emit('notification', {
-                title: `✅ Task Approved: ${w.task_name}`,
+                title: ` Task Approved: ${w.task_name}`,
                 message: `Your task "${w.task_name}" was approved. Next due: ${nextDueStr}`,
                 type: "task_verified"
               });
@@ -810,7 +806,7 @@ export const supervisorVerify = async (req, res) => {
         const w = aInfo[0];
         await createNotification(
           w.user_id,
-          `❌ Task Rejected`,
+          ` Task Rejected`,
           `Task "${w.task_name}" was rejected. Reason: ${reject_reason || "No reason provided"}`,
           "task_rejected",
           assignment_id
@@ -820,7 +816,7 @@ export const supervisorVerify = async (req, res) => {
         );
         if (req.app?.get('io')) {
           req.app.get('io').to(`user_${w.user_id}`).emit('notification', {
-            title: `❌ Task Rejected`,
+            title: ` Task Rejected`,
             message: `Task "${w.task_name}" was rejected. Reason: ${reject_reason || "No reason provided"}`,
             type: "task_rejected"
           });
@@ -841,7 +837,7 @@ export const supervisorVerify = async (req, res) => {
   }
 };
 
-// ── POST /api/schedule/dismiss — supervisor pauses task → tomorrow
+// dissmiss tasks
 export const dismissTask = async (req, res) => {
   try {
     const supervisorUserId = req.user?.id;
@@ -911,7 +907,7 @@ export const dismissTask = async (req, res) => {
   }
 };
 
-// ── GET /api/schedule/workers-available
+// get workers for schedule
 export const getWorkersForSchedule = async (req, res) => {
   try {
     const supervisorUserId = req.user?.id;
@@ -1011,7 +1007,7 @@ export const getWorkersForSchedule = async (req, res) => {
       if (w.availability_status !== "available") return false;
       if (remaining <= 0) return false;
 
-      // ✅ ONLY supervisor fields allowed
+      // ONLY supervisor fields allowed
       if (w.preferred_locations && Array.isArray(w.preferred_locations) && w.preferred_locations.length > 0) {
         const match = w.preferred_locations.some(loc => {
           const locNum = Number(loc);

@@ -19,22 +19,18 @@ const router = express.Router();
 
 router.use(authenticate);
 
-// Admin / Supervisor
 router.get("/workers",    authorize("admin", "supervisor"), getAllWorkers);
 router.get("/my-workers", authorize("supervisor"),          getWorkersForSupervisor);
 
-// Worker profile  ← add these two
 router.get("/profile", authorize("worker"), getWorkerProfile);
 router.put("/profile", authorize("worker"), updateWorkerProfile);
 router.get('/profile-status', authenticate, checkProfileStatus);
 
-// Worker tasks
 router.get("/tasks",                        authorize("worker"), getWorkerTasks);
 router.get("/tasks-by-date",                 authorize("worker"), getWorkerTasksByDate);
 router.put("/tasks/:assignmentId/status",   authorize("worker"), updateTaskStatus);
 router.post("/tasks/:taskId/postpone",      authorize("worker"), postponeTask);
 
-// Worker attendance
 router.post("/attendance", authorize("worker"), markAttendance);
 router.get("/attendance",  authorize("worker"), getAttendanceStatus);
 

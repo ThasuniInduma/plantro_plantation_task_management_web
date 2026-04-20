@@ -9,15 +9,13 @@ import './adminDashboard.css';
 
 const API_BASE = 'http://localhost:8081/api/admin/dashboard';
 
-/* ─── API helper ──────────────────────────────────────── */
-// Replace the apiFetch helper at the top
 const apiFetch = async (url, options = {}) => {
   const token = localStorage.getItem('token');
   const res = await fetch(url, {
     credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,   // ← add this
+      'Authorization': `Bearer ${token}`,   
       ...options.headers,
     },
     ...options,
@@ -27,12 +25,11 @@ const apiFetch = async (url, options = {}) => {
   return data;
 };
 
-/* ─── Skeleton loader ─────────────────────────────────── */
 const Skeleton = ({ width = '100%', height = '1rem', radius = '6px', style = {} }) => (
     <div className="skeleton" style={{ width, height, borderRadius: radius, ...style }} />
 );
 
-/* ─── Stat Card ───────────────────────────────────────── */
+/* Stat Card */
 const StatCard = ({ variant, icon, value, label, meta, loading }) => (
     <div className={`stat-card ${variant}`}>
         <div className="stat-icon">{icon}</div>
@@ -53,7 +50,7 @@ const StatCard = ({ variant, icon, value, label, meta, loading }) => (
     </div>
 );
 
-/* ─── Notification icon ───────────────────────────────── */
+/*  Notification icon  */
 const NotifIcon = ({ type }) => {
     if (type === 'warning') return <FiAlertCircle />;
     if (type === 'success') return <FiCheckCircle />;
@@ -61,13 +58,11 @@ const NotifIcon = ({ type }) => {
     return <FiActivity />;
 };
 
-/* ══════════════════════════════════════════════════════
-   MAIN COMPONENT
-══════════════════════════════════════════════════════ */
+/* MAIN COMPONENT */
 const AdminDashboard = () => {
     const navigate = useNavigate();
 
-    /* ── State ── */
+    /*  State  */
     const [selectedField, setSelectedField]         = useState(null);
     const [showNotifications, setShowNotifications] = useState(false);
 
@@ -86,7 +81,7 @@ const AdminDashboard = () => {
 
     const unreadCount = notifications.filter(n => n.unread).length;
 
-    /* ── Close dropdown on outside click ── */
+    /*  Close dropdown on outside click */
     useEffect(() => {
         const handle = (e) => {
             if (notifRef.current && !notifRef.current.contains(e.target)) {
@@ -97,7 +92,6 @@ const AdminDashboard = () => {
         return () => document.removeEventListener('mousedown', handle);
     }, []);
 
-    /* ─── Fetch helpers ─────────────────────────────── */
     const fetchStats = useCallback(async () => {
         setLoadingStats(true);
         try {
@@ -136,14 +130,12 @@ const AdminDashboard = () => {
         }
     }, []);
 
-    /* ── Initial load ── */
     useEffect(() => {
         fetchStats();
         fetchFields();
         fetchNotifications();
     }, [fetchStats, fetchFields, fetchNotifications]);
 
-    /* ── Poll notifications every 30s ── */
     useEffect(() => {
         pollingRef.current = setInterval(() => {
             fetchNotifications();
@@ -151,7 +143,7 @@ const AdminDashboard = () => {
         return () => clearInterval(pollingRef.current);
     }, [fetchNotifications]);
 
-    /* ─── Field detail ──────────────────────────────── */
+    /*  Field detail  */
     const handleFieldClick = async (field) => {
         setLoadingFieldDetail(true);
         setSelectedField({ ...field, _loading: true });
@@ -166,9 +158,8 @@ const AdminDashboard = () => {
         }
     };
 
-    /* ─── Mark all notifications read ──────────────── */
+    /*  Mark all notifications read  */
     const markAllAsRead = async () => {
-        // Optimistic update
         setNotifications(prev => prev.map(n => ({ ...n, unread: false })));
         try {
             await apiFetch(`${API_BASE}/notifications/read`, { method: 'PUT' });
@@ -177,7 +168,7 @@ const AdminDashboard = () => {
         }
     };
 
-    /* ─── Mark single notification read ────────────── */
+    /*  Mark single notification read  */
     const markOneRead = async (notifId) => {
         setNotifications(prev =>
             prev.map(n => n.id === notifId ? { ...n, unread: false } : n)
@@ -189,7 +180,7 @@ const AdminDashboard = () => {
         }
     };
 
-    /* ─── Dismiss notification ──────────────────────── */
+    /*  Dismiss notification  */
     const dismissNotification = async (notifId) => {
         setNotifications(prev => prev.filter(n => n.id !== notifId));
         try {
@@ -208,9 +199,6 @@ const AdminDashboard = () => {
         fetchNotifications();
     };
 
-    /* ════════════════════════════════════════════════
-       FIELD DETAIL VIEW
-    ════════════════════════════════════════════════ */
     const FieldDetailsView = ({ field }) => (
         <div className="field-detail-container">
             <button className="back-btn" onClick={() => setSelectedField(null)}>
@@ -312,9 +300,6 @@ const AdminDashboard = () => {
         </div>
     );
 
-    /* ════════════════════════════════════════════════
-       OVERVIEW DASHBOARD
-    ════════════════════════════════════════════════ */
     const OverviewDashboard = () => (
         <div className="overview-container">
 
@@ -451,14 +436,11 @@ const AdminDashboard = () => {
         </div>
     );
 
-    /* ════════════════════════════════════════════════
-       ROOT RENDER
-    ════════════════════════════════════════════════ */
     return (
         <div className="admin-dashboard-layout">
             <div className="main-content">
 
-                {/* ── Header ── */}
+                {/*  Header  */}
                 <header className="content-header">
                     <div className="header-left">
                         <h1 className="page-title">
@@ -575,7 +557,7 @@ const AdminDashboard = () => {
                     </div>
                 </header>
 
-                {/* ── Body ── */}
+                {/*  Body  */}
                 <main className="content-body">
                     {selectedField
                         ? <FieldDetailsView field={selectedField} />

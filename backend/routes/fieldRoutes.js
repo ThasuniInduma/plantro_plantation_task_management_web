@@ -14,7 +14,6 @@ import {
 
 const router = express.Router();
 
-// IMPORTANT: static routes before /:id
 router.get("/supervisors", getSupervisors);
 router.get("/workers",     getWorkers);
 router.get("/",            getAllFields);

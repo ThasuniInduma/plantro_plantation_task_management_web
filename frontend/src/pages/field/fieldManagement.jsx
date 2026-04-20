@@ -108,7 +108,6 @@ const FieldManagement = ({ logo }) => {
         fetchFieldTasks(f.field_id);
     };
 
-    // ── Field CRUD ────────────────────────────────────────────────────────────
     const openAddModal = () => {
         setEditingField(null);
         setFormData(emptyForm);
@@ -134,68 +133,68 @@ const FieldManagement = ({ logo }) => {
     };
 
     const validateFieldName = (name) => {
-  if (!name.trim()) return 'Field name is required.';
-  if (name.trim().length < 2) return 'Field name must be at least 2 characters.';
-  // ✅ Allow letters, numbers, spaces — no symbols
-  if (!/^[a-zA-Z0-9\s]+$/.test(name.trim()))
-    return 'Field name can only contain letters, numbers and spaces (no symbols).';
-  // ✅ Must have at least one letter
-  if (!/[a-zA-Z]/.test(name))
-    return 'Field name must contain at least one letter.';
-  return null;
-};
-
-    const handleSave = async () => {
-  const { field_name, crop_id, location, area, supervisor_id } = formData;
-
-  // ── Validations ────────────────────────────────────────────
-  const nameError = validateFieldName(field_name);
-  if (nameError) { alert(nameError); return; }
-
-  if (!crop_id) { alert('Please select a crop type.'); return; }
-
-  if (!location.trim()) { alert('Location is required.'); return; }
-  if (location.trim().length < 3) { alert('Please enter a valid location.'); return; }
-
-  if (!area) { alert('Area is required.'); return; }
-  if (isNaN(area) || Number(area) <= 0) { alert('Area must be a positive number.'); return; }
-  if (Number(area) > 10000) { alert('Area seems too large. Please verify.'); return; }
-
-  setLoading(true);
-  try {
-    const payload = {
-      field_name: field_name.trim(),
-      crop_id: Number(crop_id),
-      location: location.trim(),
-      area: parseFloat(area),
-      supervisor_id: supervisor_id ? Number(supervisor_id) : null
+    if (!name.trim()) return 'Field name is required.';
+    if (name.trim().length < 2) return 'Field name must be at least 2 characters.';
+    // Allow letters, numbers, spaces — no symbols
+    if (!/^[a-zA-Z0-9\s]+$/.test(name.trim()))
+        return 'Field name can only contain letters, numbers and spaces (no symbols).';
+    // Must have at least one letter
+    if (!/[a-zA-Z]/.test(name))
+        return 'Field name must contain at least one letter.';
+    return null;
     };
 
-    const url    = editingField ? `${API}/fields/${editingField.field_id}` : `${API}/fields`;
-    const method = editingField ? 'PUT' : 'POST';
+    const handleSave = async () => {
+    const { field_name, crop_id, location, area, supervisor_id } = formData;
 
-    const res  = await fetch(url, {
-      method,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Save failed');
+    //  Validations 
+    const nameError = validateFieldName(field_name);
+    if (nameError) { alert(nameError); return; }
 
-    if (editingField) {
-      setFields(prev => prev.map(f => f.field_id === editingField.field_id ? data : f));
-      if (selectedField?.field_id === editingField.field_id) setSelectedField(data);
-    } else {
-      setFields(prev => [...prev, data]);
+    if (!crop_id) { alert('Please select a crop type.'); return; }
+
+    if (!location.trim()) { alert('Location is required.'); return; }
+    if (location.trim().length < 3) { alert('Please enter a valid location.'); return; }
+
+    if (!area) { alert('Area is required.'); return; }
+    if (isNaN(area) || Number(area) <= 0) { alert('Area must be a positive number.'); return; }
+    if (Number(area) > 10000) { alert('Area seems too large. Please verify.'); return; }
+
+    setLoading(true);
+    try {
+        const payload = {
+        field_name: field_name.trim(),
+        crop_id: Number(crop_id),
+        location: location.trim(),
+        area: parseFloat(area),
+        supervisor_id: supervisor_id ? Number(supervisor_id) : null
+        };
+
+        const url    = editingField ? `${API}/fields/${editingField.field_id}` : `${API}/fields`;
+        const method = editingField ? 'PUT' : 'POST';
+
+        const res  = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Save failed');
+
+        if (editingField) {
+        setFields(prev => prev.map(f => f.field_id === editingField.field_id ? data : f));
+        if (selectedField?.field_id === editingField.field_id) setSelectedField(data);
+        } else {
+        setFields(prev => [...prev, data]);
+        }
+
+        closeModal();
+    } catch (err) {
+        alert(err.message || 'Something went wrong');
+    } finally {
+        setLoading(false);
     }
-
-    closeModal();
-  } catch (err) {
-    alert(err.message || 'Something went wrong');
-  } finally {
-    setLoading(false);
-  }
-};
+    };
 
     const handleDelete = async (fieldId) => {
         if (!window.confirm('Delete this field? This cannot be undone.')) return;
@@ -209,7 +208,7 @@ const FieldManagement = ({ logo }) => {
         }
     };
 
-    // ── Task assignment ───────────────────────────────────────────────────────
+    //  Task assignment 
     const openAssignModal = (task = null) => {
         setPreselectedTask(task);
         setAssignForm({
@@ -257,7 +256,6 @@ const FieldManagement = ({ logo }) => {
         }
     };
 
-    // ── Helpers ───────────────────────────────────────────────────────────────
     const filteredFields = fields.filter(f => {
         const matchSearch =
             f.field_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -303,7 +301,7 @@ const FieldManagement = ({ logo }) => {
             />
 
             <div className="fm-main">
-                {/* ── Header ── */}
+                {/*  Header  */}
                 <header className="fm-header">
                     <div>
                         <h1 className="fm-title">Field Management</h1>
@@ -317,11 +315,11 @@ const FieldManagement = ({ logo }) => {
                     </div>
                 </header>
 
-                {/* ── Body ── */}
+                {/*  Body  */}
                 <div className="fm-body">
                     <div className="fm-grid">
 
-                        {/* ── Left panel ── */}
+                        {/*  Left panel  */}
                         <div className="fm-left">
                             <div className="fm-panel-head">
                                 <h2>All Fields ({filteredFields.length})</h2>
@@ -391,7 +389,7 @@ const FieldManagement = ({ logo }) => {
                             </div>
                         </div>
 
-                        {/* ── Right panel ── */}
+                        {/*  Right panel  */}
                         <div className="fm-right">
                             {selectedField ? (
                                 <>
@@ -425,7 +423,7 @@ const FieldManagement = ({ logo }) => {
                                         ))}
                                     </div>
 
-                                    {/* ── OVERVIEW TAB ── */}
+                                    {/*  OVERVIEW TAB  */}
                                     {detailTab === 'overview' && (
                                         <div className="fm-tab-content">
                                             {/* 3 stat cards */}
@@ -507,7 +505,7 @@ const FieldManagement = ({ logo }) => {
                                         </div>
                                     )}
 
-                                    {/* ── SCHEDULED TASKS TAB ── */}
+                                    {/*  SCHEDULED TASKS TAB  */}
                                     {detailTab === 'available' && (
                                         <div className="fm-tab-content scrollable">
                                             {tasksLoading ? (
@@ -561,7 +559,7 @@ const FieldManagement = ({ logo }) => {
                                         </div>
                                     )}
 
-                                    {/* ── COMPLETED TASKS TAB ── */}
+                                    {/*  COMPLETED TASKS TAB  */}
                                     {detailTab === 'done' && (
                                         <div className="fm-tab-content scrollable">
                                             {tasksLoading ? (
@@ -619,7 +617,7 @@ const FieldManagement = ({ logo }) => {
                 </div>
             </div>
 
-            {/* ── Add/Edit Field Modal ── */}
+            {/*  Add/Edit Field Modal  */}
             {showModal && (
                 <div className="fm-overlay" onClick={closeModal}>
                     <div className="fm-modal" onClick={(e) => e.stopPropagation()}>
@@ -698,7 +696,7 @@ const FieldManagement = ({ logo }) => {
                 </div>
             )}
 
-            {/* ── Assign Task Modal ── */}
+            {/*  Assign Task Modal  */}
             {showAssignModal && (
                 <div className="fm-overlay" onClick={closeAssignModal}>
                     <div className="fm-modal fm-assign-modal" onClick={(e) => e.stopPropagation()}>

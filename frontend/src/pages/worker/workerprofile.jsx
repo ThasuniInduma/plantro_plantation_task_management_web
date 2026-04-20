@@ -36,61 +36,61 @@ const WorkerProfile = () => {
   });
   const [passwordStatus, setPasswordStatus] = useState(null);
   const [availableSkills, setAvailableSkills] = useState([]);
-const [availableLocations, setAvailableLocations] = useState([]);
+  const [availableLocations, setAvailableLocations] = useState([]);
 
-  // Fetch profile
-  // Replace the fetch in useEffect
-useEffect(() => {
-  const fetchProfile = async () => {
-    try {
-      const token = localStorage.getItem('token');
+    // Fetch profile
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const token = localStorage.getItem('token');
 
-      const [profileRes, tasksRes, locationsRes] = await Promise.all([
-        axios.get(`${backendUrl}/api/worker/profile`, {
-          headers: { Authorization: `Bearer ${token}` },
-          withCredentials: true
-        }),
+        const [profileRes, tasksRes, locationsRes] = await Promise.all([
+          axios.get(`${backendUrl}/api/worker/profile`, {
+            headers: { Authorization: `Bearer ${token}` },
+            withCredentials: true
+          }),
 
-        axios.get(`${backendUrl}/api/tasks/all`, {
-          headers: { Authorization: `Bearer ${token}` },
-          withCredentials: true
-        }),
-        
+          axios.get(`${backendUrl}/api/tasks/all`, {
+            headers: { Authorization: `Bearer ${token}` },
+            withCredentials: true
+          }),
+          
 
-        axios.get(`${backendUrl}/api/fields`, {
-          headers: { Authorization: `Bearer ${token}` },
-          withCredentials: true
-        })
-      ]);
+          axios.get(`${backendUrl}/api/fields`, {
+            headers: { Authorization: `Bearer ${token}` },
+            withCredentials: true
+          })
+        ]);
 
-      const profile = profileRes.data;
-      const tasks = tasksRes.data;
-      const locations = locationsRes.data;
+        const profile = profileRes.data;
+        const tasks = tasksRes.data;
+        const locations = locationsRes.data;
 
-      setProfileData(profile);
+        setProfileData(profile);
 
-      setAvailableSkills((tasks || []).map(t => t.task_name));
-      setAvailableLocations([
-        ...new Set((locations || []).map(f => f.location))
-      ]);
+        setAvailableSkills((tasks || []).map(t => t.task_name));
+        setAvailableLocations([
+          ...new Set((locations || []).map(f => f.location))
+        ]);
 
-      setFormData({
-        full_name: profile.full_name || '',
-        phone: profile.phone || '',
-        skills: profile.skills || [],
-        preferred_locations: profile.preferred_locations || [],
-        max_daily_hours: profile.max_daily_hours || 8,
-      });
+        setFormData({
+          full_name: profile.full_name || '',
+          phone: profile.phone || '',
+          skills: profile.skills || [],
+          preferred_locations: profile.preferred_locations || [],
+          max_daily_hours: profile.max_daily_hours || 8,
+        });
 
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  fetchProfile();
-}, [backendUrl]);
+    fetchProfile();
+  }, [backendUrl]);
+
   const handleEdit = () => { setEditing(true); setSaveStatus(null); };
 
   const handleCancel = () => {
@@ -121,27 +121,27 @@ useEffect(() => {
     setFormData(p => ({ ...p, skills: p.skills.filter(s => s !== skill) }));
 
   const handleSave = async () => {
-  try {
-    const token = localStorage.getItem('token');
-    const { data } = await axios.put(
-      `${backendUrl}/api/worker/profile`,
-      formData,
-      { headers: { Authorization: `Bearer ${token}` }, withCredentials: true }
-    );
-    // update local state with what the backend actually has
-    const refreshed = await axios.get(`${backendUrl}/api/worker/profile`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    setProfileData(refreshed.data);
-    setUserData(p => ({ ...p, full_name: refreshed.data.full_name, phone: refreshed.data.phone }));
-    setEditing(false);
-    setSaveStatus('success');
-    setTimeout(() => setSaveStatus(null), 3000);
-  } catch {
-    setSaveStatus('error');
-    setTimeout(() => setSaveStatus(null), 3000);
-  }
-};
+    try {
+      const token = localStorage.getItem('token');
+      const { data } = await axios.put(
+        `${backendUrl}/api/worker/profile`,
+        formData,
+        { headers: { Authorization: `Bearer ${token}` }, withCredentials: true }
+      );
+      // update local state with what the backend actually has
+      const refreshed = await axios.get(`${backendUrl}/api/worker/profile`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setProfileData(refreshed.data);
+      setUserData(p => ({ ...p, full_name: refreshed.data.full_name, phone: refreshed.data.phone }));
+      setEditing(false);
+      setSaveStatus('success');
+      setTimeout(() => setSaveStatus(null), 3000);
+    } catch {
+      setSaveStatus('error');
+      setTimeout(() => setSaveStatus(null), 3000);
+    }
+  };
 
   const handleChangePassword = async () => {
     if (passwordData.newPassword !== passwordData.confirmPassword) { setPasswordStatus('mismatch'); return; }

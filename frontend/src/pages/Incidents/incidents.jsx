@@ -89,18 +89,16 @@ export default function Incidents() {
           <p>Everything looks safe and under control 🌿</p>
         </div>
       ) : (
-        /* GRID */
         <div className="inc-grid">
           {incidents.map((i) => (
             <div className="inc-card" key={i.report_id}>
 
-              {/* LEFT COLOR STRIP */}
               <div
                 className="inc-strip"
                 style={{ background: severityColor(i.severity) }}
               />
 
-              {/* CONTENT */}
+              {/* content */}
               <div className="inc-content">
 
                 <div className="inc-top">
@@ -126,36 +124,36 @@ export default function Incidents() {
                 </div>
 
                 <div className="inc-actions">
-  <span className={`inc-status ${i.status}`}>
-    {i.status}
-  </span>
+                  <span className={`inc-status ${i.status}`}>
+                    {i.status}
+                  </span>
 
-  <div className="inc-buttons">
-    <button
-      className="btn-progress"
-      onClick={() => updateStatus(i.report_id, "in_progress")}
-      disabled={i.status === "in_progress"}
-    >
-      <FiClock /> In Progress
-    </button>
+                  <div className="inc-buttons">
+                    <button
+                      className="btn-progress"
+                      onClick={() => updateStatus(i.report_id, "in_progress")}
+                      disabled={i.status === "in_progress"}
+                    >
+                      <FiClock /> In Progress
+                    </button>
 
-    <button
-      className="btn-resolve"
-      onClick={() => updateStatus(i.report_id, "resolved")}
-      disabled={i.status === "resolved"}
-    >
-      <FiCheckCircle /> Resolve
-    </button>
+                    <button
+                      className="btn-resolve"
+                      onClick={() => updateStatus(i.report_id, "resolved")}
+                      disabled={i.status === "resolved"}
+                    >
+                      <FiCheckCircle /> Resolve
+                    </button>
 
-    <button
-      className="btn-reset"
-      onClick={() => updateStatus(i.report_id, "pending")}
-      disabled={i.status === "pending"}
-    >
-    <FiXCircle /> Reset
-    </button>
-  </div>
-</div>
+                    <button
+                      className="btn-reset"
+                      onClick={() => updateStatus(i.report_id, "pending")}
+                      disabled={i.status === "pending"}
+                    >
+                    <FiXCircle /> Reset
+                    </button>
+                  </div>
+                </div>
 
               </div>
             </div>

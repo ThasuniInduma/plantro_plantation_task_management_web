@@ -393,7 +393,6 @@
   transform: scale(0.95);
 }
 
-/* Remove input arrows (Chrome, Safari, Edge) */
 .number-stepper input::-webkit-outer-spin-button,
 .number-stepper input::-webkit-inner-spin-button {
   -webkit-appearance: none;

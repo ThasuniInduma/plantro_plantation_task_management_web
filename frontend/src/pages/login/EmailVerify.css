@@ -26,7 +26,6 @@
     display: none;
 }
 
-/* Left Side - Form */
 .email-verify form {
     flex: 0 0 45%;
     padding: 60px 50px;
@@ -200,7 +199,6 @@
     background-size: 70%;
 }
 
-/* Mobile Responsiveness */
 @media (max-width: 900px) {
     .verify-container {
         flex-direction: column;
@@ -262,7 +260,6 @@
     }
 }
 
-/* Animation for wrong OTP */
 @keyframes shake {
     0%, 100% { transform: translateX(0); }
     25% { transform: translateX(-10px); }

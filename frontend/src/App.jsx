@@ -36,13 +36,11 @@ function App() {
     <div className='app'>
       <Routes>
 
-        {/* PUBLIC */}
         <Route path='/' element={<Home />} />
         <Route path='/login' element={<Login />} />
         <Route path='/email-verify' element={<EmailVerify />} />
         <Route path='/reset-password' element={<ResetPassword />} />
 
-        {/* WORKER */}
         <Route path='/worker' element={
           <ProtectedRoute allowedRoles={["worker"]}>
             <DashboardLayout><WorkerDashboard /></DashboardLayout>
@@ -67,7 +65,6 @@ function App() {
           </ProtectedRoute>
         } />
 
-        {/* SUPERVISOR */}
         <Route path='/supervisor' element={
           <ProtectedRoute allowedRoles={["supervisor"]}>
             <DashboardLayout><SupervisorDashboard /></DashboardLayout>
@@ -86,7 +83,6 @@ function App() {
           </ProtectedRoute>
         } />
 
-        {/* ADMIN */}
         <Route path='/admin' element={
           <ProtectedRoute allowedRoles={["owner"]}>
             <DashboardLayout><AdminDashboard /></DashboardLayout>
@@ -99,7 +95,6 @@ function App() {
           </ProtectedRoute>
         } />
 
-        {/* SHARED (MULTI ROLE) */}
         <Route path='/attendance' element={
           <ProtectedRoute allowedRoles={["owner", "supervisor"]}>
             <DashboardLayout><Attendance /></DashboardLayout>

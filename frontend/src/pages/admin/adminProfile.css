@@ -26,7 +26,6 @@
   --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Layout */
 .admin-profile-layout {
   display: flex;
   background: var(--neutral-50);
@@ -39,7 +38,6 @@
   padding: 0;
 }
 
-/* Header */
 .profile-header {
   background: white;
   border-bottom: 1px solid var(--neutral-200);
@@ -106,7 +104,6 @@
   background: var(--neutral-400);
 }
 
-/* Status Messages */
 .status-message {
   display: flex;
   align-items: center;
@@ -146,7 +143,6 @@
   flex-shrink: 0;
 }
 
-/* Profile Content */
 .profile-content {
   padding: 32px;
   max-width: 900px;
@@ -156,7 +152,6 @@
   gap: 32px;
 }
 
-/* Profile Card */
 .profile-card {
   background: white;
   border-radius: var(--border-radius-lg);
@@ -214,7 +209,6 @@
   letter-spacing: 0.5px;
 }
 
-/* Form Groups */
 .profile-details {
   display: grid;
   grid-template-columns: 1fr;
@@ -279,7 +273,6 @@
   margin-top: -4px;
 }
 
-/* Action Buttons */
 .profile-actions {
   display: flex;
   gap: 16px;
@@ -424,7 +417,6 @@
   border-left: 4px solid var(--danger);
 }
 
-/* Loading State */
 .loading-state {
   display: flex;
   flex-direction: column;
@@ -449,7 +441,6 @@
   }
 }
 
-/* Password Modal */
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -580,7 +571,6 @@
   min-width: 120px;
 }
 
-/* Responsive Design */
 @media (max-width: 1024px) {
   .profile-header {
     flex-direction: column;

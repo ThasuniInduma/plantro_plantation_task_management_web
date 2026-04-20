@@ -32,7 +32,6 @@ const CropManagement = ({ logo }) => {
     const [showSuggestions, setShowSuggestions] = useState(false);
     const suggestRef = useRef(null);
 
-    // ── Load on mount ────────────────────────────────────────────────────────
     useEffect(() => {
         const load = async () => {
             try {
@@ -76,7 +75,6 @@ const CropManagement = ({ logo }) => {
         load();
     }, []);
 
-    // ── Close suggestions on outside click ───────────────────────────────────
     useEffect(() => {
         const handler = (e) => {
             if (suggestRef.current && !suggestRef.current.contains(e.target))
@@ -86,7 +84,6 @@ const CropManagement = ({ logo }) => {
         return () => document.removeEventListener('mousedown', handler);
     }, []);
 
-    // ── Helpers ──────────────────────────────────────────────────────────────
     const refreshCropData = async (cropId) => {
         try {
             const [taskRes, fieldRes] = await Promise.all([
@@ -132,7 +129,6 @@ const CropManagement = ({ logo }) => {
         setShowSuggestions(false);
     };
 
-    // ── Suggestion filtering ─────────────────────────────────────────────────
     const alreadyAddedIds = new Set(
         (selectedCrop?.tasks || []).map(t => Number(t.task_id))
     );
@@ -159,66 +155,65 @@ const CropManagement = ({ logo }) => {
         setShowSuggestions(false);
     };
 
-    // ── Crop handlers ────────────────────────────────────────────────────────
-    // ── Validation helper ────────────────────────────────────────────────────
-const validateCropName = (name) => {
-  if (!name.trim()) return 'Crop name is required.';
-  if (!/^[a-zA-Z\s]+$/.test(name.trim()))
-    return 'Crop name can only contain letters and spaces.';
-  if (name.trim().length < 2) return 'Crop name must be at least 2 characters.';
-  return null;
-};
+    // Validation helper
+    const validateCropName = (name) => {
+    if (!name.trim()) return 'Crop name is required.';
+    if (!/^[a-zA-Z\s]+$/.test(name.trim()))
+        return 'Crop name can only contain letters and spaces.';
+    if (name.trim().length < 2) return 'Crop name must be at least 2 characters.';
+    return null;
+    };
 
-const handleAddCrop = async () => {
-  const nameError = validateCropName(newCrop.name);
-  if (nameError) { alert(nameError); return; }
-  if (!newCrop.description.trim()) { alert('Description is required.'); return; }
+    const handleAddCrop = async () => {
+    const nameError = validateCropName(newCrop.name);
+    if (nameError) { alert(nameError); return; }
+    if (!newCrop.description.trim()) { alert('Description is required.'); return; }
 
-  try {
-    const res = await fetch(`${BASE}/crops`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name: newCrop.name.trim(),
-        description: newCrop.description.trim()
-      })
-    });
-    const data = await res.json();
-    setCrops(prev => [...prev, {
-      id: data.id,
-      name: data.name,
-      description: data.description,
-      tasks: []
-    }]);
-    closeModals();
-  } catch { alert('Failed to add crop.'); }
-};
+    try {
+        const res = await fetch(`${BASE}/crops`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            name: newCrop.name.trim(),
+            description: newCrop.description.trim()
+        })
+        });
+        const data = await res.json();
+        setCrops(prev => [...prev, {
+        id: data.id,
+        name: data.name,
+        description: data.description,
+        tasks: []
+        }]);
+        closeModals();
+    } catch { alert('Failed to add crop.'); }
+    };
 
-const handleUpdateCrop = async () => {
-  const nameError = validateCropName(newCrop.name);
-  if (nameError) { alert(nameError); return; }
-  if (!newCrop.description.trim()) { alert('Description is required.'); return; }
+    const handleUpdateCrop = async () => {
+    const nameError = validateCropName(newCrop.name);
+    if (nameError) { alert(nameError); return; }
+    if (!newCrop.description.trim()) { alert('Description is required.'); return; }
 
-  try {
-    const res = await fetch(`${BASE}/crops/${editingCrop.id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name: newCrop.name.trim(),
-        description: newCrop.description.trim()
-      })
-    });
-    const data = await res.json();
-    setCrops(prev => prev.map(c =>
-      c.id === editingCrop.id
-        ? { ...c, name: data.name, description: data.description }
-        : c
-    ));
-    if (selectedCrop?.id === editingCrop.id)
-      setSelectedCrop(p => ({ ...p, name: data.name, description: data.description }));
-    closeModals();
-  } catch { alert('Failed to update crop.'); }
-};
+    try {
+        const res = await fetch(`${BASE}/crops/${editingCrop.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            name: newCrop.name.trim(),
+            description: newCrop.description.trim()
+        })
+        });
+        const data = await res.json();
+        setCrops(prev => prev.map(c =>
+        c.id === editingCrop.id
+            ? { ...c, name: data.name, description: data.description }
+            : c
+        ));
+        if (selectedCrop?.id === editingCrop.id)
+        setSelectedCrop(p => ({ ...p, name: data.name, description: data.description }));
+        closeModals();
+    } catch { alert('Failed to update crop.'); }
+    };
 
     const handleDeleteCrop = async (cropId) => {
         if (!window.confirm('Delete this crop and all its tasks?')) return;
@@ -233,61 +228,60 @@ const handleUpdateCrop = async () => {
     };
 
     const validateTaskForm = () => {
-  const { task_name, description, frequency_days, estimated_man_hours } = taskForm;
+    const { task_name, description, frequency_days, estimated_man_hours } = taskForm;
 
-  if (!task_name.trim()) {
-    alert('Task name is required.'); return false;
-  }
-  if (!/^[a-zA-Z\s]+$/.test(task_name.trim())) {
-    alert('Task name can only contain letters and spaces.'); return false;
-  }
-  if (!description.trim()) {
-    alert('Description is required.'); return false;
-  }
-  if (!frequency_days) {
-    alert('Frequency is required.'); return false;
-  }
-  if (!/^\d+$/.test(String(frequency_days)) || Number(frequency_days) < 1) {
-    alert('Frequency must be a positive whole number.'); return false;
-  }
-  if (!estimated_man_hours) {
-    alert('Estimated man-hours is required.'); return false;
-  }
-  if (!/^\d+$/.test(String(estimated_man_hours)) || Number(estimated_man_hours) < 1) {
-    alert('Estimated man-hours must be a positive whole number.'); return false;
-  }
-  return true;
-};
-
-    // ── Task handlers ────────────────────────────────────────────────────────
-    const handleAddTask = async () => {
-  if (!validateTaskForm()) return;
-
-  const { task_id, task_name, description, frequency_days, estimated_man_hours } = taskForm;
-  try {
-    const res = await fetch(`${BASE}/tasks`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        crop_id: selectedCrop.id,
-        task_id: task_id || null,
-        task_name,
-        description,
-        frequency_days:      Number(frequency_days),
-        estimated_man_hours: Number(estimated_man_hours)
-      })
-    });
-    if (!res.ok) throw new Error();
-    const saved = await res.json();
-
-    if (!task_id) {
-      setAllTasks(prev => [...prev, { task_id: saved.task_id, task_name, description }]);
+    if (!task_name.trim()) {
+        alert('Task name is required.'); return false;
     }
+    if (!/^[a-zA-Z\s]+$/.test(task_name.trim())) {
+        alert('Task name can only contain letters and spaces.'); return false;
+    }
+    if (!description.trim()) {
+        alert('Description is required.'); return false;
+    }
+    if (!frequency_days) {
+        alert('Frequency is required.'); return false;
+    }
+    if (!/^\d+$/.test(String(frequency_days)) || Number(frequency_days) < 1) {
+        alert('Frequency must be a positive whole number.'); return false;
+    }
+    if (!estimated_man_hours) {
+        alert('Estimated man-hours is required.'); return false;
+    }
+    if (!/^\d+$/.test(String(estimated_man_hours)) || Number(estimated_man_hours) < 1) {
+        alert('Estimated man-hours must be a positive whole number.'); return false;
+    }
+    return true;
+    };
 
-    await refreshCropData(selectedCrop.id);
-    closeModals();
-  } catch { alert('Failed to add task.'); }
-};
+    const handleAddTask = async () => {
+    if (!validateTaskForm()) return;
+
+    const { task_id, task_name, description, frequency_days, estimated_man_hours } = taskForm;
+    try {
+        const res = await fetch(`${BASE}/tasks`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            crop_id: selectedCrop.id,
+            task_id: task_id || null,
+            task_name,
+            description,
+            frequency_days:      Number(frequency_days),
+            estimated_man_hours: Number(estimated_man_hours)
+        })
+        });
+        if (!res.ok) throw new Error();
+        const saved = await res.json();
+
+        if (!task_id) {
+        setAllTasks(prev => [...prev, { task_id: saved.task_id, task_name, description }]);
+        }
+
+        await refreshCropData(selectedCrop.id);
+        closeModals();
+    } catch { alert('Failed to add task.'); }
+    };
 
     const handleEditTask = (cropTask) => {
         setEditingCropTask(cropTask);
@@ -356,7 +350,7 @@ const handleUpdateCrop = async () => {
                 <main className="content-body">
                     <div className="crop-management-container">
 
-                        {/* ── Crops Panel ── */}
+                        {/*  Crops Panel  */}
                         <div className="crops-panel">
                             <div className="panel-header">
                                 <h2>Crops</h2>
@@ -418,7 +412,7 @@ const handleUpdateCrop = async () => {
                             </div>
                         </div>
 
-                        {/* ── Detail Panel ── */}
+                        {/*  Detail Panel  */}
                         <div className="tasks-panel">
                             {selectedCrop ? (
                                 <>
@@ -448,7 +442,7 @@ const handleUpdateCrop = async () => {
                                         </button>
                                     </div>
 
-                                    {/* ── Fields Section ── */}
+                                    {/*  Fields Section  */}
                                     {cropFields.length > 0 && (
                                         <div className="fields-section">
                                             <div className="fields-section-header">
@@ -482,7 +476,7 @@ const handleUpdateCrop = async () => {
                                         </div>
                                     )}
 
-                                    {/* ── Tasks Section ── */}
+                                    {/*  Tasks Section  */}
                                     <div className="tasks-section-header">
                                         <FiLayers className="section-icon" />
                                         <span>Tasks Defined for {selectedCrop.name}</span>
@@ -559,7 +553,7 @@ const handleUpdateCrop = async () => {
                 </main>
             </div>
 
-            {/* ── Add/Edit Crop Modal ── */}
+            {/*  Add/Edit Crop Modal  */}
             {showAddCropModal && (
                 <div className="modal-overlay" onClick={closeModals}>
                     <div className="modal" onClick={(e) => e.stopPropagation()}>
@@ -608,7 +602,7 @@ const handleUpdateCrop = async () => {
                 </div>
             )}
 
-            {/* ── Add/Edit Task Modal ── */}
+            {/*  Add/Edit Task Modal  */}
             {showAddTaskModal && (
                 <div className="modal-overlay" onClick={closeModals}>
                     <div className="modal task-modal" onClick={(e) => e.stopPropagation()}>
@@ -711,7 +705,7 @@ const handleUpdateCrop = async () => {
                                         step="1"
                                         value={taskForm.frequency_days}
                                         onChange={(e) => {
-                                            // ✅ Only positive integers
+                                            //  Only positive integers
                                             const val = e.target.value.replace(/[^0-9]/g, '');
                                             setTaskForm(f => ({ ...f, frequency_days: val }));
                                         }}
@@ -730,7 +724,7 @@ const handleUpdateCrop = async () => {
                                         step="1"
                                         value={taskForm.estimated_man_hours}
                                         onChange={(e) => {
-                                            // ✅ Only positive integers
+                                            //  Only positive integers
                                             const val = e.target.value.replace(/[^0-9]/g, '');
                                             setTaskForm(f => ({ ...f, estimated_man_hours: val }));
                                         }}

@@ -8,11 +8,9 @@ import {
   FiMap, FiUsers, FiRefreshCw, FiMapPin,
 } from 'react-icons/fi';
 
-// ✅ FIX: Use locale-aware date strings so they match MySQL CURDATE() in local timezone
 const localDateStr = (offsetDays = 0) => {
   const d = new Date();
   d.setDate(d.getDate() + offsetDays);
-  // 'en-CA' gives YYYY-MM-DD format which matches MySQL date columns
   return d.toLocaleDateString('en-CA');
 };
 
@@ -53,7 +51,7 @@ const [loadingReports, setLoadingReports] = useState(false);
     return () => clearInterval(t);
   }, []);
 
-  // ── Fetch tasks ────────────────────────────────────────────────────────
+  //  Fetch tasks 
   const fetchTasks = useCallback(async () => {
     try {
       setLoadingTasks(true);
@@ -127,7 +125,6 @@ const [loadingReports, setLoadingReports] = useState(false);
     load();
   }, [fetchNotifications, fetchTasks]);
 
-  // Poll every 30s for new notifications
   useEffect(() => {
     const interval = setInterval(fetchNotifications, 30000);
     return () => clearInterval(interval);
@@ -150,7 +147,6 @@ const fetchFields = useCallback(async () => {
       }
     });
 
-    // ✅ backend returns array directly
     setFields(Array.isArray(data) ? data : []);
 
   } catch (err) {
@@ -170,7 +166,6 @@ const submitIncident = async () => {
   }
 
   try {
-    // ✅ FORCE SAFE ENUM VALUES BEFORE SENDING
     const payload = {
       field_id: Number(selectedField),
       title: title.trim(),
@@ -212,7 +207,7 @@ const submitIncident = async () => {
   }
 };
 
-  // ── Metrics ───────────────────────────────────────────────────────────
+  //  Metrics 
   const completedCount  = tasks.filter(t => t.status === 'Completed').length;
   const inProgressCount = tasks.filter(t => t.status === 'In Progress').length;
   const pendingCount    = tasks.filter(t => t.status === 'Assigned').length;
@@ -274,7 +269,7 @@ const submitIncident = async () => {
     <div className="worker-dashboard-layout">
       <div className="main-content">
 
-        {/* ── Header ── */}
+        {/*  Header  */}
         <header className="content-header">
           <div className="header-left">
             <h1 className="page-title">My Dashboard</h1>
@@ -292,7 +287,7 @@ const submitIncident = async () => {
           </div>
         </header>
 
-        {/* ── Notifications dropdown ── */}
+        {/*  Notifications dropdown  */}
         {showNotifications && (
           <>
             <div className="notification-overlay" onClick={() => setShowNotifications(false)}/>
@@ -350,7 +345,7 @@ const submitIncident = async () => {
 
         <main className="content-body">
 
-          {/* ── Welcome ── */}
+          {/*  Welcome  */}
           <div className="welcome-section">
             <div className="welcome-card">
               <div className="welcome-text">
@@ -378,7 +373,7 @@ const submitIncident = async () => {
             </div>
           </div>
 
-          {/* ── Metrics ── */}
+          {/*  Metrics  */}
           <div className="metrics-section">
             <div className="metric-card completed">
               <div className="metric-icon"><FiCheckCircle size={28}/></div>
@@ -416,7 +411,7 @@ const submitIncident = async () => {
             </div>
           </div>
 
-          {/* ── Incident Reports ── */}
+          {/*  Incident Reports  */}
           <div className="incident-card">
 
             <div className="incident-header">
@@ -424,7 +419,6 @@ const submitIncident = async () => {
               <p>Report issues quickly in one place</p>
             </div>
 
-            {/* FORM INSIDE ONE CARD */}
             <div className="incident-form-row">
 
               <input
@@ -481,7 +475,6 @@ const submitIncident = async () => {
               onChange={(e) => setDescription(e.target.value)}
             />
 
-            {/* ACTIONS INSIDE SAME CARD */}
             <div className="incident-footer-actions">
 
               <button
@@ -500,82 +493,82 @@ const submitIncident = async () => {
 
           </div>
           {activeTab === 'my-reports' && (
-  <div className="incident-card">
-    <div className="incident-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-      <div>
-        <h3>My Reports</h3>
-        <p>All incidents you have submitted</p>
-      </div>
-      <button
-        className="btn-outline"
-        style={{ padding: '6px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer', borderRadius: 8, border: '1px solid var(--border-color)' }}
-        onClick={() => setActiveTab('worker')}
-      >
-        ✕ Close
-      </button>
-    </div>
+            <div className="incident-card">
+              <div className="incident-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <h3>My Reports</h3>
+                  <p>All incidents you have submitted</p>
+                </div>
+                <button
+                  className="btn-outline"
+                  style={{ padding: '6px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer', borderRadius: 8, border: '1px solid var(--border-color)' }}
+                  onClick={() => setActiveTab('worker')}
+                >
+                  ✕ Close
+                </button>
+              </div>
 
-    {loadingReports ? (
-      <div style={{ display: 'flex', justifyContent: 'center', padding: 24 }}>
-        <div className="tasks-loading-spinner" />
-      </div>
-    ) : myReports.length === 0 ? (
-      <div className="no-tasks" style={{ minHeight: 120 }}>
-        <span className="no-tasks-icon">📋</span>
-        <h3>No reports yet</h3>
-        <p>You haven't submitted any incident reports.</p>
-      </div>
-    ) : (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {myReports.map(r => (
-          <div key={r.report_id} style={{
-            background: 'var(--bg-tertiary)',
-            border: '1px solid var(--border-color)',
-            borderRadius: 10,
-            padding: '12px 14px',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 6,
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)' }}>{r.title}</span>
-              <span style={{
-                fontSize: 11, fontWeight: 700, padding: '2px 9px',
-                borderRadius: 999,
-                background:
-                  r.status === 'resolved' ? 'rgba(16,185,129,0.12)' :
-                  r.status === 'in_progress' ? 'rgba(59,130,246,0.12)' :
-                  'rgba(245,158,11,0.12)',
-                color:
-                  r.status === 'resolved' ? '#065f46' :
-                  r.status === 'in_progress' ? '#1d4ed8' :
-                  '#92400e',
-              }}>
-                {r.status.replace('_', ' ').toUpperCase()}
-              </span>
+              {loadingReports ? (
+                <div style={{ display: 'flex', justifyContent: 'center', padding: 24 }}>
+                  <div className="tasks-loading-spinner" />
+                </div>
+              ) : myReports.length === 0 ? (
+                <div className="no-tasks" style={{ minHeight: 120 }}>
+                  <span className="no-tasks-icon">📋</span>
+                  <h3>No reports yet</h3>
+                  <p>You haven't submitted any incident reports.</p>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {myReports.map(r => (
+                    <div key={r.report_id} style={{
+                      background: 'var(--bg-tertiary)',
+                      border: '1px solid var(--border-color)',
+                      borderRadius: 10,
+                      padding: '12px 14px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 6,
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)' }}>{r.title}</span>
+                        <span style={{
+                          fontSize: 11, fontWeight: 700, padding: '2px 9px',
+                          borderRadius: 999,
+                          background:
+                            r.status === 'resolved' ? 'rgba(16,185,129,0.12)' :
+                            r.status === 'in_progress' ? 'rgba(59,130,246,0.12)' :
+                            'rgba(245,158,11,0.12)',
+                          color:
+                            r.status === 'resolved' ? '#065f46' :
+                            r.status === 'in_progress' ? '#1d4ed8' :
+                            '#92400e',
+                        }}>
+                          {r.status.replace('_', ' ').toUpperCase()}
+                        </span>
+                      </div>
+                      <p style={{ margin: 0, fontSize: 12, color: 'var(--text-secondary)' }}>{r.description}</p>
+                      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 4 }}>
+                        <span style={{ fontSize: 11, color: 'var(--text-muted)' }}> {r.field_name}</span>
+                        <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>🏷 {r.incident_type.replace('_', ' ')}</span>
+                        <span style={{
+                          fontSize: 11, fontWeight: 600,
+                          color: r.severity === 'critical' ? '#ef4444' : r.severity === 'high' ? '#f59e0b' : 'var(--text-muted)'
+                        }}>
+                          ⚠️ {r.severity}
+                        </span>
+                        <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 'auto' }}>
+                          {new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-            <p style={{ margin: 0, fontSize: 12, color: 'var(--text-secondary)' }}>{r.description}</p>
-            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 4 }}>
-              <span style={{ fontSize: 11, color: 'var(--text-muted)' }}> {r.field_name}</span>
-              <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>🏷 {r.incident_type.replace('_', ' ')}</span>
-              <span style={{
-                fontSize: 11, fontWeight: 600,
-                color: r.severity === 'critical' ? '#ef4444' : r.severity === 'high' ? '#f59e0b' : 'var(--text-muted)'
-              }}>
-                ⚠️ {r.severity}
-              </span>
-              <span style={{ fontSize: 11, color: 'var(--text-muted)', marginLeft: 'auto' }}>
-                {new Date(r.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-              </span>
-            </div>
-          </div>
-        ))}
-      </div>
-    )}
-  </div>
-)}
+          )}
 
-          {/* ── Tasks ── */}
+          {/*  Tasks  */}
           <div className="tasks-section">
             <div className="section-header">
               <h2>Your Tasks</h2>

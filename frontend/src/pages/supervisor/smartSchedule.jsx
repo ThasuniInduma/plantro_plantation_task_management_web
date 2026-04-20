@@ -66,15 +66,15 @@ const today = getLocalDate();
     setLoading(true);
     try {
       const [tRes, uRes] = await Promise.all([
-  fetch(`${BASE}/schedule/today`, {
-    headers: getHeaders(),
-    credentials: 'include'
-  }),
-  fetch(`${BASE}/schedule/upcoming?days=7`, {
-    headers: getHeaders(),
-    credentials: 'include'
-  })
-]);
+        fetch(`${BASE}/schedule/today`, {
+          headers: getHeaders(),
+          credentials: 'include'
+        }),
+        fetch(`${BASE}/schedule/upcoming?days=7`, {
+          headers: getHeaders(),
+          credentials: 'include'
+        })
+      ]);
       const tData = await tRes.json();
       const uData = await uRes.json();
       setTodayFields(Array.isArray(tData) ? tData : []);
@@ -112,8 +112,8 @@ const today = getLocalDate();
 
     // If needs verify, pre-select the pending assignment
     const pending = task.assignments?.find(
-  a => a.assignment_id === task.pending_assignment_id
-);
+      a => a.assignment_id === task.pending_assignment_id
+    );
     if (pending) {
       setVerifyAssign(pending);
       setVerifyMode(true);
@@ -129,12 +129,12 @@ const today = getLocalDate();
     setLoadingWorkers(true);
     try {
       const res = await fetch(
-  `${BASE}/schedule/workers-available?date=${today}&field_id=${fieldId}&task_id=${taskId}`,
-  {
-    headers: getHeaders(),
-    credentials: 'include'
-  }
-);
+        `${BASE}/schedule/workers-available?date=${today}&field_id=${fieldId}&task_id=${taskId}`,
+        {
+          headers: getHeaders(),
+          credentials: 'include'
+        }
+      );
       const data = await res.json();
       setAvailWorkers(Array.isArray(data) ? data : []);
     } catch { setAvailWorkers([]); }
@@ -142,47 +142,47 @@ const today = getLocalDate();
   };
 
   // Assign worker
-const handleAssign = async () => {
-  if (!selectedWorkers.length || !selectedTask) return;
+  const handleAssign = async () => {
+    if (!selectedWorkers.length || !selectedTask) return;
 
-  setAssigning(true);
-  try {
-    const results = await Promise.all(
-      selectedWorkers.map(workerId =>
-        fetch(`${BASE}/schedule/assign`, {
-          method: 'POST',
-          headers: getHeaders(),
-          credentials: 'include',
-          body: JSON.stringify({
-            schedule_id: selectedTask.schedule_id,
-            worker_user_id: Number(workerId),
-            date: today,
-            expected_hours_per_worker: expectedHours,
-            deadline_time: deadlineTime || null
-          })
-        }).then(r => r.json())
-      )
-    );
+    setAssigning(true);
+    try {
+      const results = await Promise.all(
+        selectedWorkers.map(workerId =>
+          fetch(`${BASE}/schedule/assign`, {
+            method: 'POST',
+            headers: getHeaders(),
+            credentials: 'include',
+            body: JSON.stringify({
+              schedule_id: selectedTask.schedule_id,
+              worker_user_id: Number(workerId),
+              date: today,
+              expected_hours_per_worker: expectedHours,
+              deadline_time: deadlineTime || null
+            })
+          }).then(r => r.json())
+        )
+      );
 
-    await fetchAll();
-    await fetchTasksForDate(selectedDate);
-    setSelectedWorkers([]);
-    setSelectedTask(null);
+      await fetchAll();
+      await fetchTasksForDate(selectedDate);
+      setSelectedWorkers([]);
+      setSelectedTask(null);
 
-  } catch (err) {
-    alert(err.message);
-  } finally {
-    setAssigning(false);
-  }
-};
-const workersNeeded =
-  selectedTask
-    ? Math.ceil(selectedTask.estimated_man_hours / (expectedHours || 1))
-    : 0;
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setAssigning(false);
+    }
+  };
+  const workersNeeded =
+    selectedTask
+      ? Math.ceil(selectedTask.estimated_man_hours / (expectedHours || 1))
+      : 0;
 
-const assignedWorkers = selectedTask?.assignments?.length || 0;
+  const assignedWorkers = selectedTask?.assignments?.length || 0;
 
-const remainingWorkers = Math.max(0, workersNeeded - assignedWorkers);
+  const remainingWorkers = Math.max(0, workersNeeded - assignedWorkers);
 
   // Verify / Reject
   const handleVerify = async (action) => {
@@ -196,7 +196,7 @@ const remainingWorkers = Math.max(0, workersNeeded - assignedWorkers);
         method: 'POST', headers: getHeaders(), credentials: 'include',
         body: JSON.stringify({
           task_id: selectedTask.task_id,
-field_id: selectedTask.field_id,
+          field_id: selectedTask.field_id,
           assignment_id: verifyAssign.assignment_id,
           action,
           reject_reason: rejectReason
@@ -333,7 +333,7 @@ field_id: selectedTask.field_id,
           {/* Main content — two-panel when task selected */}
           <div className={`ss-content ${selectedTask ? 'split' : ''}`}>
 
-            {/* LEFT: task list */}
+            {/* task list */}
             <div className="ss-list-panel">
               {loading ? (
                 <div className="ss-empty"><div className="ss-spin"/><p>Loading...</p></div>
@@ -415,7 +415,7 @@ field_id: selectedTask.field_id,
               )}
             </div>
 
-            {/* RIGHT: detail panel */}
+            {/* detail panel */}
             {selectedTask && selectedField && (
               <div className="ss-detail-panel">
                 <div className="ss-detail-head">
@@ -545,53 +545,51 @@ field_id: selectedTask.field_id,
                       Assign a Worker</p>
                       <div className="ss-assignment-meta">
     
-    <div className="ss-hours-input">
-  <label>Expected hours per worker</label>
-  <input
-    type="number"
-    min="1"
-    step="1"
-    value={expectedHours}
-    onChange={(e) => {
-      const val = parseInt(e.target.value, 10);
-      setExpectedHours(isNaN(val) ? 1 : val);
-    }}
-  />
-</div>
+                        <div className="ss-hours-input">
+                          <label>Expected hours per worker</label>
+                          <input
+                            type="number"
+                            min="1"
+                            step="1"
+                            value={expectedHours}
+                            onChange={(e) => {
+                              const val = parseInt(e.target.value, 10);
+                              setExpectedHours(isNaN(val) ? 1 : val);
+                            }}
+                          />
+                        </div>
 
-    <div className="ss-hours-input">
-  <label>Deadline Time</label>
-  <input
-    type="time"
-    value={deadlineTime}
-    onChange={(e) => setDeadlineTime(e.target.value)}
-  />
-</div>
+                        <div className="ss-hours-input">
+                          <label>Deadline Time</label>
+                          <input
+                            type="time"
+                            value={deadlineTime}
+                            onChange={(e) => setDeadlineTime(e.target.value)}
+                          />
+                        </div>
 
-    <div className="ss-assignment-stats">
-      <div className="ss-detail-row">
-        <span>Workers needed</span>
-        <strong>
-          {workersNeeded} worker{workersNeeded !== 1 ? 's' : ''}
-        </strong>
-      </div>
+                        <div className="ss-assignment-stats">
+                          <div className="ss-detail-row">
+                            <span>Workers needed</span>
+                            <strong>
+                              {workersNeeded} worker{workersNeeded !== 1 ? 's' : ''}
+                            </strong>
+                          </div>
 
-      <div className="ss-detail-row">
-        <span>Already assigned</span>
-        <strong>{assignedWorkers}</strong>
-      </div>
+                          <div className="ss-detail-row">
+                            <span>Already assigned</span>
+                            <strong>{assignedWorkers}</strong>
+                          </div>
 
-      <div className="ss-detail-row">
-        <span>Remaining workers</span>
-        <strong style={{ color: remainingWorkers > 0 ? '#f59e0b' : '#10b981' }}>
-          {remainingWorkers}
-        </strong>
-      </div>
-    </div></div>
-                          
-                          
-                          
-
+                          <div className="ss-detail-row">
+                            <span>Remaining workers</span>
+                            <strong style={{ color: remainingWorkers > 0 ? '#f59e0b' : '#10b981' }}>
+                              {remainingWorkers}
+                            </strong>
+                          </div>
+                        </div>
+                      </div>
+                                     
                     {loadingWorkers ? (
                       <div className="ss-workers-loading">
                         <div className="ss-mini-spin"/> Loading workers...
@@ -662,7 +660,7 @@ field_id: selectedTask.field_id,
                   </div>
                 )}
 
-                {/* Dismiss — only for unassigned tasks */}
+                {/* Dismiss - only for unassigned tasks */}
                 {!selectedTask.needs_verification &&
                  (selectedTask.assignments?.length || 0) === 0 && (
                   <button className="ss-dismiss-btn" onClick={handleDismiss}>

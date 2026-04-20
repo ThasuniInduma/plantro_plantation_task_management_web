@@ -21,7 +21,7 @@ const Attendance = () => {
 
   const canMark = userData?.role_id === 1 || userData?.role_id === 2;
 
-  // ---------------- FETCH WORKERS ----------------
+  // fech workers
   useEffect(() => {
     fetchWorkers();
   }, []);
@@ -42,7 +42,7 @@ const Attendance = () => {
   }
 };
 
-  // ---------------- FETCH ATTENDANCE ----------------
+  //  FETCH ATTENDANCE 
   useEffect(() => {
     fetchAttendance();
   }, [selectedDate]);
@@ -79,13 +79,13 @@ const Attendance = () => {
 
   const currentDayAttendance = attendanceRecords[selectedDate] || {};
 
-  // ---------------- FILTER ----------------
+  //  filter workers
   const filteredWorkers = workers.filter(w =>
     w.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     w.worker_id.toString().includes(searchTerm)
   );
 
-  // ---------------- MARK ATTENDANCE ----------------
+  // mark attendance
   const markAttendance = (workerId, status) => {
   if (!canMark) return;
 
@@ -113,7 +113,7 @@ const Attendance = () => {
   });
 };
 
-  // ---------------- MARK ALL PRESENT ----------------
+  //mark all present
   const markAllPresent = () => {
   if (!canMark) return;
 
@@ -146,7 +146,7 @@ const Attendance = () => {
   });
 };
 
-  // ---------------- RESET ----------------
+  // reset
   const resetDay = () => {
     if (!canMark) return;
 
@@ -166,7 +166,7 @@ const Attendance = () => {
     }));
   };
 
-  // ---------------- SAVE ----------------
+  // save
 const saveAttendance = async () => {
   try {
 
@@ -209,13 +209,13 @@ const saveAttendance = async () => {
   setAttendanceRecords(prev => {
     const existing = prev[selectedDate]?.[workerId];
 
-    // ❌ must be present/late
+    //  must be present/late
     if (!existing || !['present', 'late'].includes(existing.status)) {
       alert("Worker must be present or late first");
       return prev;
     }
 
-    // ❌ prevent duplicate checkout
+    //  prevent duplicate checkout
     if (existing.checkOutTime) return prev;
 
     return {
@@ -231,7 +231,7 @@ const saveAttendance = async () => {
   });
 };
 
-  // ---------------- STATS ----------------
+  // status
   const stats = {
     total: workers.length,
     present: Object.values(currentDayAttendance).filter(r => r?.status === 'present').length,

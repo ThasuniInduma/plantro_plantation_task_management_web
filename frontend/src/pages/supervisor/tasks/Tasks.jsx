@@ -319,7 +319,7 @@ const workersNeededInfo =
         <div className="content-body">
           <div className="task-container">
 
-            {/* ── Left: Calendar ── */}
+            {/* Calendar  */}
             <div className="calendar-section">
               <div className="calendar-card">
                 <div className="calendar-header">
@@ -576,7 +576,7 @@ const workersNeededInfo =
         </div>
       </div>
 
-      {/* ── Assign Worker Modal ── */}
+      {/*  Assign Worker Modal  */}
       {showAssignModal && assignTarget && (
         <div className="modal-overlay" onClick={() => setShowAssignModal(false)}>
           <div className="modal-content" onClick={e => e.stopPropagation()}>
@@ -591,45 +591,45 @@ const workersNeededInfo =
             <div className="modal-body">
               {/* Deadline Time */}
               <div className="deadline-section">
-  <label>Hours until deadline</label>
+                <label>Hours until deadline</label>
 
-  <div className="number-stepper">
-    <button
-      type="button"
-      onClick={() => setDeadlineHours(prev => Math.max(1, prev - 1))}
-    >
-      −
-    </button>
+                <div className="number-stepper">
+                  <button
+                    type="button"
+                    onClick={() => setDeadlineHours(prev => Math.max(1, prev - 1))}
+                  >
+                    −
+                  </button>
 
-    <input
-      type="number"
-      min="1"
-      step="1"
-      value={deadlineHours}
-      onChange={(e) => {
-        const val = parseInt(e.target.value, 10);
-        setDeadlineHours(isNaN(val) ? 1 : val);
-      }}
-    />
+                  <input
+                    type="number"
+                    min="1"
+                    step="1"
+                    value={deadlineHours}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value, 10);
+                      setDeadlineHours(isNaN(val) ? 1 : val);
+                    }}
+                  />
 
-    <button
-      type="button"
-      onClick={() => setDeadlineHours(prev => prev + 1)}
-    >
-      +
-    </button>
-  </div>
-</div>
-{workersNeededInfo && (
-  <div className="workers-needed-preview">
-    <p>
-      Hours available: <b>{workersNeededInfo.hoursAvailable}h</b>
-    </p>
-    <p>
-      Workers needed: <b>{workersNeededInfo.workersNeeded}</b>
-    </p>
-  </div>
-)}
+                  <button
+                    type="button"
+                    onClick={() => setDeadlineHours(prev => prev + 1)}
+                  >
+                    +
+                  </button>
+                </div>
+                  </div>
+                  {workersNeededInfo && (
+                    <div className="workers-needed-preview">
+                      <p>
+                        Hours available: <b>{workersNeededInfo.hoursAvailable}h</b>
+                      </p>
+                      <p>
+                        Workers needed: <b>{workersNeededInfo.workersNeeded}</b>
+                      </p>
+                    </div>
+                  )}
 
               <p className="modal-subtitle">
                 Only showing workers assigned to {assignTarget.field.field_name}
@@ -642,70 +642,70 @@ const workersNeededInfo =
                 </div>
               ) : (
                 <div className="workers-list">
-  {[...availWorkers]
-    .sort((a, b) => (b.hours_remaining || 0) - (a.hours_remaining || 0))
-    .map(w => (
-      <div
-        key={w.user_id}
-        className={`worker-option ${selectedWorkers.includes(w.user_id) ? 'selected' : ''}`}
-        onClick={() => {
-          setSelectedWorkers(prev =>
-            prev.includes(w.user_id)
-              ? prev.filter(id => id !== w.user_id)
-              : [...prev, w.user_id]
-          );
-        }}
-      >
-        <div className="worker-avatar">
-          {w.full_name?.charAt(0)?.toUpperCase() || '?'}
-        </div>
+                {[...availWorkers]
+                  .sort((a, b) => (b.hours_remaining || 0) - (a.hours_remaining || 0))
+                  .map(w => (
+                    <div
+                      key={w.user_id}
+                      className={`worker-option ${selectedWorkers.includes(w.user_id) ? 'selected' : ''}`}
+                      onClick={() => {
+                        setSelectedWorkers(prev =>
+                          prev.includes(w.user_id)
+                            ? prev.filter(id => id !== w.user_id)
+                            : [...prev, w.user_id]
+                        );
+                      }}
+                    >
+                      <div className="worker-avatar">
+                        {w.full_name?.charAt(0)?.toUpperCase() || '?'}
+                      </div>
 
-        <div className="worker-info">
-          <h4>{w.full_name}</h4>
+                      <div className="worker-info">
+                        <h4>{w.full_name}</h4>
 
-          <p>
-            {w.skills?.join(', ') || 'No skills listed'}
+                        <p>
+                          {w.skills?.join(', ') || 'No skills listed'}
 
-            {w.attendance_status && (
-              <span style={{
-                marginLeft: 6,
-                color:
-                  w.attendance_status === 'present' ? '#10b981' :
-                  w.attendance_status === 'absent' ? '#ef4444' :
-                  w.attendance_status === 'late' ? '#f59e0b' : '#94a3b8',
-                fontWeight: 700
-              }}>
-                · {w.attendance_status === 'not_marked'
-                  ? 'Not marked'
-                  : w.attendance_status}
-              </span>
-            )}
-          </p>
+                          {w.attendance_status && (
+                            <span style={{
+                              marginLeft: 6,
+                              color:
+                                w.attendance_status === 'present' ? '#10b981' :
+                                w.attendance_status === 'absent' ? '#ef4444' :
+                                w.attendance_status === 'late' ? '#f59e0b' : '#94a3b8',
+                              fontWeight: 700
+                            }}>
+                              · {w.attendance_status === 'not_marked'
+                                ? 'Not marked'
+                                : w.attendance_status}
+                            </span>
+                          )}
+                        </p>
 
-          {w.hours_remaining !== undefined && (
-            <>
-              <div className="worker-hours-bar">
-                <div
-                  className="worker-hours-fill"
-                  style={{
-                    width: `${((w.hours_remaining || 0) / w.max_daily_hours) * 100}%`
-                  }}
-                />
+                        {w.hours_remaining !== undefined && (
+                          <>
+                            <div className="worker-hours-bar">
+                              <div
+                                className="worker-hours-fill"
+                                style={{
+                                  width: `${((w.hours_remaining || 0) / w.max_daily_hours) * 100}%`
+                                }}
+                              />
+                            </div>
+
+                            <span className="worker-hours-text">
+                              {w.hours_remaining}h of {w.max_daily_hours}h available
+                            </span>
+                          </>
+                        )}
+                      </div>
+
+                      <div className={`checkbox ${selectedWorkers.includes(w.user_id) ? 'checked' : ''}`}>
+                        {selectedWorkers.includes(w.user_id) && <FiCheck size={15} />}
+                      </div>
+                    </div>
+                  ))}
               </div>
-
-              <span className="worker-hours-text">
-                {w.hours_remaining}h of {w.max_daily_hours}h available
-              </span>
-            </>
-          )}
-        </div>
-
-        <div className={`checkbox ${selectedWorkers.includes(w.user_id) ? 'checked' : ''}`}>
-          {selectedWorkers.includes(w.user_id) && <FiCheck size={15} />}
-        </div>
-      </div>
-    ))}
-</div>
               )}
             </div>
 
@@ -724,7 +724,7 @@ const workersNeededInfo =
         </div>
       )}
 
-      {/* ── Verify Modal ── */}
+      {/*  Verify Modal  */}
       {showVerifyModal && verifyTarget && (
         <div className="modal-overlay" onClick={() => setShowVerifyModal(false)}>
           <div className="modal-content" onClick={e => e.stopPropagation()}>

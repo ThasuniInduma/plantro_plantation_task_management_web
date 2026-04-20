@@ -10,7 +10,6 @@
   width: calc(100% -250px);  
 }
 
-/* HEADER */
 .inc-header {
   margin-bottom: 20px;
 }
@@ -24,14 +23,12 @@
   color: #64748b;
 }
 
-/* GRID */
 .inc-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); /* bigger cards */
   gap: 30px;
 }
 
-/* CARD */
 .inc-card {
   display: flex;
   background: #fff;
@@ -49,13 +46,11 @@
   width: 6px;
 }
 
-/* CONTENT */
 .inc-content {
   padding: 14px;
   flex: 1;
 }
 
-/* TOP */
 .inc-top {
   display: flex;
   justify-content: space-between;
@@ -67,7 +62,6 @@
   font-weight: 600;
 }
 
-/* BADGE */
 .inc-badge {
   font-size: 11px;
   padding: 4px 8px;
@@ -75,14 +69,12 @@
   text-transform: capitalize;
 }
 
-/* DESCRIPTION */
 .inc-desc {
   font-size: 13px;
   color: #475569;
   margin: 8px 0;
 }
 
-/* INFO */
 .inc-info {
   display: flex;
   flex-direction: column;
@@ -91,14 +83,12 @@
   gap: 4px;
 }
 
-/* BOTTOM */
 .inc-bottom {
   display: flex;
   justify-content: space-between;
   margin-top: 10px;
 }
 
-/* STATUS */
 .inc-status {
   font-size: 11px;
   padding: 3px 8px;
@@ -114,7 +104,6 @@
   color: #94a3b8;
 }
 
-/* EMPTY STATE */
 .inc-empty-box {
   background: white;
   padding: 50px;
@@ -129,7 +118,6 @@
   color: #334155;
 }
 
-/* LOADING */
 .inc-loading {
   padding: 40px;
   text-align: center;

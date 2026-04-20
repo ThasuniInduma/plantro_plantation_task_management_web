@@ -20,7 +20,6 @@ const authHeaders = () => ({
   Authorization: `Bearer ${localStorage.getItem('token')}`,
 });
 
-// ─── Color palette ────────────────────────────────────────────────────────────
 const COLORS = {
   completed: '#10b981',
   pending:   '#f59e0b',
@@ -31,7 +30,6 @@ const COLORS = {
 const PIE_COLORS = ['#10b981', '#f59e0b', '#3b82f6', '#ef4444', '#8b5cf6'];
 const BAR_COLORS = ['#1a4d2e', '#2d7a47', '#4caf70', '#a8d5b5', '#d4edda'];
 
-// ─── Export helpers ───────────────────────────────────────────────────────────
 const exportCSV = (data, filename) => {
   if (!data?.length) return;
   const keys = Object.keys(data[0]).filter(k => !Array.isArray(data[0][k]) && typeof data[0][k] !== 'object');
@@ -103,7 +101,7 @@ const exportPDF = (reportType, data, summary) => {
   setTimeout(() => win.print(), 500);
 };
 
-// ─── Stat Card ────────────────────────────────────────────────────────────────
+//  Stat Card 
 const StatCard = ({ icon, label, value, sub, color, trend }) => (
   <div className={`rm-stat-card ${color}`}>
     <div className="rm-stat-icon">{icon}</div>
@@ -121,7 +119,7 @@ const StatCard = ({ icon, label, value, sub, color, trend }) => (
   </div>
 );
 
-// ─── Custom Tooltip ───────────────────────────────────────────────────────────
+//  Custom Tooltip 
 const CustomTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null;
   return (
@@ -134,13 +132,13 @@ const CustomTooltip = ({ active, payload, label }) => {
   );
 };
 
-// ─── Health Badge ─────────────────────────────────────────────────────────────
+//  Health Badge 
 const HealthBadge = ({ health }) => {
   const map = { Excellent: 'green', Good: 'blue', Fair: 'amber', Poor: 'orange', Critical: 'red' };
   return <span className={`rm-health-badge ${map[health] || 'gray'}`}>{health}</span>;
 };
 
-// ─── Main Component ───────────────────────────────────────────────────────────
+//  Main Component 
 const ReportManagement = () => {
   const { userData } = useContext(AppContext);
   const [activeTab, setActiveTab]     = useState('reports');
@@ -158,7 +156,7 @@ const ReportManagement = () => {
   const [startDate, setStartDate]     = useState('');
   const [endDate, setEndDate]         = useState('');
 
-  // ── Fetch summary ──
+  //  Fetch summary 
   const fetchSummary = useCallback(async () => {
     try {
       const res = await fetch(`${API}/api/reports/summary`, { headers: authHeaders() });
@@ -167,7 +165,7 @@ const ReportManagement = () => {
     } catch (e) { console.error(e); }
   }, []);
 
-  // ── Fetch analytics ──
+  //  Fetch analytics 
   const fetchAnalytics = useCallback(async () => {
     setAnalyticsLoading(true);
     try {
@@ -178,7 +176,7 @@ const ReportManagement = () => {
     finally { setAnalyticsLoading(false); }
   }, []);
 
-  // ── Fetch fields dropdown ──
+  //  Fetch fields dropdown 
   useEffect(() => {
     (async () => {
       try {
@@ -191,7 +189,7 @@ const ReportManagement = () => {
     fetchAnalytics();
   }, [fetchSummary, fetchAnalytics]);
 
-  // ── Fetch report data ──
+  //  Fetch report data 
   const fetchReports = useCallback(async () => {
     if (reportType === 'overview') return;
     setLoading(true); setError(null);
@@ -232,7 +230,7 @@ const ReportManagement = () => {
     { id: 'harvesting-reports',  icon: <FiTrendingUp size={15}/>,   label: 'Harvesting' },
   ];
 
-  // ── Overview Analytics Panel ──────────────────────────────────────────────
+  //  Overview Analytics Panel 
   const renderOverview = () => {
     if (analyticsLoading) return <div className="rm-loading"><div className="rm-spinner"/><p>Loading analytics...</p></div>;
     if (!analytics) return <div className="rm-empty"><FiBarChart2 size={48}/><h3>No analytics data</h3></div>;
@@ -249,7 +247,7 @@ const ReportManagement = () => {
 
     return (
       <div className="rm-overview">
-        {/* Row 1: charts */}
+        {/*  charts */}
         <div className="rm-charts-grid">
           {/* Status donut */}
           <div className="rm-chart-card">
@@ -297,7 +295,7 @@ const ReportManagement = () => {
           </div>
         </div>
 
-        {/* Row 2: field comparison + task breakdown */}
+        {/*  field comparison + task breakdown */}
         <div className="rm-charts-grid">
           {/* Field comparison bar */}
           <div className="rm-chart-card rm-chart-wide">
@@ -429,7 +427,7 @@ const ReportManagement = () => {
     );
   };
 
-  // ─── Render table content ─────────────────────────────────────────────────
+  //  Render table content 
   const renderTable = () => {
     if (loading) return <div className="rm-loading"><div className="rm-spinner"/><p>Loading...</p></div>;
     if (error) return <div className="rm-error"><FiAlertCircle size={32}/><p>{error}</p><button className="rm-btn rm-btn-primary" onClick={fetchReports}>Retry</button></div>;

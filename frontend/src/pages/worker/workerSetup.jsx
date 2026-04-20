@@ -41,7 +41,6 @@ const WorkerSetup = () => {
   const [customSkill, setCustomSkill] = useState('');
   const [maxDailyHours, setMaxDailyHours] = useState(8);
 
-  // ── Helpers ──────────────────────────────────────────────────────────
 
   const toggleSkill = (skill) => {
     setSelectedSkills((prev) =>
@@ -60,7 +59,6 @@ const WorkerSetup = () => {
     setSelectedSkills((prev) => prev.filter((s) => s !== skill));
   };
 
-  // ── Step 1 submit ─────────────────────────────────────────────────────
 
   const handleStep1 = async (e) => {
     e.preventDefault();
@@ -93,7 +91,7 @@ const WorkerSetup = () => {
     }
   };
 
-  // ── Step 2 submit ─────────────────────────────────────────────────────
+  //  submit 
 
   const handleStep2 = async (e) => {
     e.preventDefault();
@@ -132,7 +130,6 @@ const WorkerSetup = () => {
     }
   };
 
-  // ── Render ────────────────────────────────────────────────────────────
 
   return (
     <div className="setup-page">
@@ -211,7 +208,6 @@ const WorkerSetup = () => {
             </>
           )}
 
-          {/* ── Step 2 ── */}
           {step === 2 && (
             <>
               <div className="setup-card-header">

@@ -1,4 +1,3 @@
-/* Styling for the Footer */
 .main-footer {
   background-color: #1e3a20; /* Very Dark Green */
   color: white;
@@ -23,7 +22,6 @@
   margin-bottom: 1.5rem;
 }
 
-/* Branding Column */
 .footer-logo {
   
   width: 200px;
@@ -42,7 +40,6 @@
   line-height: 1.6;
 }
 
-/* Navigation & Contact Columns */
 .nav-links-col ul {
   list-style: none;
   padding: 0;
@@ -71,7 +68,6 @@
   color: rgba(255, 255, 255, 0.8);
 }
 
-/* Footer Bottom */
 .footer-bottom {
   max-width: 1200px;
   margin: 0 auto;
@@ -84,7 +80,6 @@
   color: rgba(255, 255, 255, 0.6);
 }
 
-/* Responsive adjustments */
 @media (max-width: 768px) {
   .footer-container {
     grid-template-columns: 1fr;

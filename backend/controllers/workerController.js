@@ -42,6 +42,7 @@ export const checkProfileStatus = async (req, res) => {
   }
 };
 
+// create worker profile
 export const createWorkerProfile = async (req, res) => {
   try {
     const userId   = req.user.id;
@@ -59,6 +60,7 @@ export const createWorkerProfile = async (req, res) => {
   }
 };
 
+//get worker profile
 export const getWorkerProfile = async (req, res) => {
   try {
     const [rows] = await db.query(
@@ -109,6 +111,7 @@ const locations = locationRows.map(l => l.location);
   }
 };
 
+//update worker profile
 export const updateWorkerProfile = async (req, res) => {
   try {
     const { full_name, phone, skills = [], preferred_locations = [], max_daily_hours = 8 } = req.body;
@@ -121,13 +124,11 @@ export const updateWorkerProfile = async (req, res) => {
     const workerId = await getWorkerIdByUserId(req.user.id);
 
     if (workerId) {
-      // Worker row exists — update it
       await db.query(
         `UPDATE workers SET skills = ?, preferred_locations = ?, max_daily_hours = ? WHERE worker_id = ?`,
         [JSON.stringify(skills), JSON.stringify(preferred_locations), max_daily_hours, workerId]
       );
     } else {
-      // No worker row yet — create one
       await db.query(
         `INSERT INTO workers (user_id, skills, preferred_locations, max_daily_hours, profile_completed)
          VALUES (?, ?, ?, ?, 1)`,
@@ -142,7 +143,7 @@ export const updateWorkerProfile = async (req, res) => {
   }
 };
 
-// GET WORKER TASKS — today + tomorrow, with teammates, canAct logic
+// GET WORKER TASKS — today + tomorrow, with teammates
 export const getWorkerTasks = async (req, res) => {
   try {
     const userId   = req.user.id;
@@ -322,7 +323,7 @@ export const updateTaskStatus = async (req, res) => {
              VALUES (?, ?, ?, 'task_completed', ?)`,
             [
               sup.user_id,
-              "✅ Task Ready for Verification",
+              " Task Ready for Verification",
               `All workers completed "${taskInfo?.task_name}" at ${taskInfo?.field_name}. Please verify.`,
               assignmentId,
             ]
@@ -422,6 +423,7 @@ export const getWorkersForSupervisor = async (req, res) => {
   }
 };
 
+//get worker tasks by date
 export const getWorkerTasksByDate = async (req, res) => {
   try {
     const workerUserId = req.user?.id;

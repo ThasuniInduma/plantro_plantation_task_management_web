@@ -1,5 +1,6 @@
 import { db } from "../config/db.js";
 
+// get all tasks
 export const getAllTasks = async (req, res) => {
   try {
     const [tasks] = await db.query(
@@ -13,6 +14,7 @@ export const getAllTasks = async (req, res) => {
   }
 };
 
+//get tasks by crop
 export const getCropTasks = async (req, res) => {
   try {
     const { cropId } = req.params;
@@ -38,6 +40,7 @@ export const getCropTasks = async (req, res) => {
   }
 };
 
+//add crop task
 export const addCropTask = async (req, res) => {
   const conn = await db.getConnection();
 
@@ -55,7 +58,7 @@ export const addCropTask = async (req, res) => {
 
     let finalTaskId = task_id ? Number(task_id) : null;
 
-    // 1. Create task if not exists
+    // Create task if not exists
     if (!finalTaskId) {
       const [result] = await conn.query(
         "INSERT INTO tasks (task_name, description) VALUES (?, ?)",
@@ -64,7 +67,7 @@ export const addCropTask = async (req, res) => {
       finalTaskId = result.insertId;
     }
 
-    // 2. Insert crop_task
+    // Insert crop_task
     const [cropTaskResult] = await conn.query(
       `INSERT INTO crop_tasks 
        (crop_id, task_id, frequency_days, estimated_man_hours) 
@@ -74,7 +77,7 @@ export const addCropTask = async (req, res) => {
 
     const cropTaskId = cropTaskResult.insertId;
 
-    // 🔥 3. AUTO ADD TO EXISTING FIELDS
+    // AUTO ADD TO EXISTING FIELDS
     const [fields] = await conn.query(
       "SELECT field_id FROM fields WHERE crop_id = ?",
       [crop_id]
@@ -110,12 +113,13 @@ export const addCropTask = async (req, res) => {
   }
 };
 
+//update crop task
 export const updateCropTask = async (req, res) => {
   try {
     const { cropTaskId } = req.params;
     const { frequency_days, estimated_man_hours } = req.body;
 
-    // 1. Update crop_tasks as before
+    // Update crop_tasks
     await db.query(
       `UPDATE crop_tasks 
        SET frequency_days = ?, estimated_man_hours = ? 
@@ -123,10 +127,10 @@ export const updateCropTask = async (req, res) => {
       [frequency_days, estimated_man_hours, cropTaskId]
     );
 
-    // 2. Recalculate next_due_date for pending schedules using this crop_task
-    //    Only update schedules that haven't been completed yet (pending_verification=0)
-    //    Recalculate as: last_done_date + frequency_days
-    //    If last_done_date is NULL, leave next_due_date as-is (it's an initial schedule)
+    // Recalculate next_due_date for pending schedules using this crop_task
+    //    Only update schedules that haven't been completed yet
+    //    Recalculate as last_done_date + frequency_days
+    //    If last_done_date is NULL, leave next_due_date as-is
     await db.query(
       `UPDATE field_task_schedule
        SET next_due_date = DATE_ADD(last_done_date, INTERVAL ? DAY)

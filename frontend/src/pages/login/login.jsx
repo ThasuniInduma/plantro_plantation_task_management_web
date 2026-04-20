@@ -23,15 +23,15 @@ const Login = () => {
 
     try {
       if (state === 'Sign Up') {
-        // ── Registration ──────────────────────────────────────────────
-        // ── Email validation ──────────────────────────────────
+        // Registration
+        //  Email validation 
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailRegex.test(email)) {
           toast.error('Please enter a valid email address');
           return;
         }
 
-        // ── Phone validation (10 digits only) ────────────────
+        //  Phone validation (10 digits only) 
         const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&]).{6,}$/;
 
         if (!passwordRegex.test(password)) {
@@ -41,19 +41,19 @@ const Login = () => {
           return;
         }
 
-        // ── Password validation ──────────────────────────────
+        //  Password validation 
         if (password.length < 6) {
           toast.error('Password must be at least 6 characters');
           return;
         }
 
-        // ── Confirm password match ───────────────────────────
+        //  Confirm password match 
         if (password !== confirmPassword) {
           toast.error('Passwords do not match');
           return;
         }
 
-        // ── API call ──────────────────────────────────────────
+        //  API call 
         const { data } = await axios.post(
           `${backendUrl}/api/auth/register`,
           { name, email, password, phone }
@@ -67,64 +67,62 @@ const Login = () => {
         }
 
       } else {
-        // ── Login ─────────────────────────────────────────────────────
-const response = await axios.post(
-  `${backendUrl}/api/auth/login`,
-  { email, password }
-);
+        //  Login 
+        const response = await axios.post(
+          `${backendUrl}/api/auth/login`,
+          { email, password }
+        );
 
-const data = response.data;
+        const data = response.data;
 
-console.log("FULL RESPONSE:", response);
-console.log("RESPONSE DATA:", data);
+        console.log("FULL RESPONSE:", response);
+        console.log("RESPONSE DATA:", data);
 
-if (data.success) {
-  const role = (data.user.role_name || "").toLowerCase();
+        if (data.success) {
+          const role = (data.user.role_name || "").toLowerCase();
 
-  const user = {
-    ...data.user,
-    role_name: role
-  };
+          const user = {
+            ...data.user,
+            role_name: role
+          };
 
+          // Clear old session
+          localStorage.removeItem("token");
+          localStorage.removeItem("user");
 
+          // Save new session
+          localStorage.setItem("token", data.token);
+          localStorage.setItem("user", JSON.stringify(user));
 
-  // ✅ Clear old session
-  localStorage.removeItem("token");
-  localStorage.removeItem("user");
+          setUserData(user);
+          setIsLoggedIn(true);
 
-  // ✅ Save new session
-  localStorage.setItem("token", data.token);
-  localStorage.setItem("user", JSON.stringify(user));
+          toast.success('Login successful');
 
-  setUserData(user);
-  setIsLoggedIn(true);
+          console.log("LOGIN ROLE:", role);
 
-  toast.success('Login successful');
-
-  console.log("LOGIN ROLE:", role);
-
-  if (role === 'owner' || role === 'admin') {
-  navigate('/admin');
-} else if (role === 'supervisor') {
-  navigate('/supervisor');
-} else if (role === 'worker') {
-  try {
-      const { data: profileData } = await axios.get(
-        `${backendUrl}/api/worker/profile-status`,
-        { headers: { Authorization: `Bearer ${data.token}` }, withCredentials: true }
-      );
-      if (profileData.profileComplete) {
-        navigate('/worker/dashboard');
-      } else {
-        navigate('/worker/setup');   // first time → setup page
-      }
-    } catch {
-      navigate('/worker/setup');     // fallback to setup on error
-    }
-}
-} else {
-  toast.error(data.message || 'Login failed');
-}
+            if (role === 'owner' || role === 'admin') {
+            navigate('/admin');
+            } else if (role === 'supervisor') {
+              navigate('/supervisor');
+            } else if (role === 'worker') {
+              try {
+                  const { data: profileData } = await axios.get(
+                    `${backendUrl}/api/worker/profile-status`,
+                    { headers: { Authorization: `Bearer ${data.token}` }, withCredentials: true }
+                  );
+                  if (profileData.profileComplete) {
+                    navigate('/worker/dashboard');
+                  } else {
+                    navigate('/worker/setup');   // first time → setup page
+                  }
+                } catch {
+                  navigate('/worker/setup');     // fallback to setup on error
+                }
+            }
+        } else {
+          toast.error(data.message || 'Login failed');
+        }
       }
     } catch (error) {
       toast.error(error.response?.data?.message || error.message || 'Something went wrong');

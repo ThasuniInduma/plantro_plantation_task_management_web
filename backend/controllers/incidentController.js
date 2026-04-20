@@ -16,7 +16,6 @@ export const createIncident = async (req, res) => {
       return res.status(400).json({ message: "Missing required fields" });
     }
 
-    // ✅ SAFE ENUM VALUES (DB MATCH)
     const allowedTypes = [
       'safety',
       'equipment_damage',
@@ -32,11 +31,11 @@ export const createIncident = async (req, res) => {
       'critical'
     ];
 
-    // ✅ NORMALIZE INPUT (IMPORTANT FIX)
+    // validate input
     incident_type = (incident_type || '').toLowerCase().trim();
     severity = (severity || '').toLowerCase().trim();
 
-    // ✅ VALIDATE + FALLBACK
+    // validate 
     if (!allowedTypes.includes(incident_type)) {
       incident_type = 'other';
     }
@@ -114,6 +113,8 @@ export const createIncident = async (req, res) => {
     });
   }
 };
+
+//get incidents relevent to supervisor
 export const getSupervisorIncidents = async (req, res) => {
   try {
     const supervisorId = req.user?.id;
@@ -142,6 +143,8 @@ export const getSupervisorIncidents = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+
+// update incident status
 export const updateIncidentStatus = async (req, res) => {
   try {
     const supervisorId = req.user?.id;
@@ -180,6 +183,8 @@ export const updateIncidentStatus = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+
+// get sncidents
 export const getMyIncidents = async (req, res) => {
   try {
     const userId = req.user?.id;

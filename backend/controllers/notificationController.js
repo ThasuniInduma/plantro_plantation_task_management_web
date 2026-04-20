@@ -1,7 +1,7 @@
 import { db } from "../config/db.js";
 import { transporter } from "../config/mailer.js";
 
-// ── Create notification (internal helper) ──────────────────────────────────
+// Create notification 
 export const createNotification = async (userId, title, message, type = 'task_assigned', referenceId = null) => {
   try {
     await db.query(
@@ -14,7 +14,7 @@ export const createNotification = async (userId, title, message, type = 'task_as
   }
 };
 
-// ── Send email (internal helper) ───────────────────────────────────────────
+// Send email 
 export const sendTaskEmail = async (toEmail, toName, subject, htmlBody) => {
   try {
     console.log(" Sending email to:", toEmail); // 👈 add this
@@ -32,7 +32,7 @@ export const sendTaskEmail = async (toEmail, toName, subject, htmlBody) => {
   }
 };
 
-// ── GET /api/notifications ─────────────────────────────────────────────────
+// get notifications
 export const getNotifications = async (req, res) => {
   try {
     const userId = req.user?.id;
@@ -47,7 +47,7 @@ export const getNotifications = async (req, res) => {
   }
 };
 
-// ── PUT /api/notifications/:id/read ───────────────────────────────────────
+// notifications marked as read
 export const markRead = async (req, res) => {
   try {
     const { id } = req.params;
@@ -61,7 +61,6 @@ export const markRead = async (req, res) => {
   }
 };
 
-// ── PUT /api/notifications/read-all ──────────────────────────────────────
 export const markAllRead = async (req, res) => {
   try {
     await db.query(

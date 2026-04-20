@@ -1,9 +1,6 @@
 import { db } from "../config/db.js";
 
-// ─────────────────────────────────────────────
 // GET DASHBOARD OVERVIEW STATS
-// GET /api/admin/dashboard/stats
-// ─────────────────────────────────────────────
 export const getDashboardStats = async (req, res) => {
   try {
     const today = new Date().toISOString().split("T")[0];
@@ -14,7 +11,6 @@ export const getDashboardStats = async (req, res) => {
     );
 
     // Total active workers
-    // FIX: roles table only has OWNER, SUPERVISOR, WORKER — correct
     const [[{ totalWorkers }]] = await db.query(
       `SELECT COUNT(*) AS totalWorkers
        FROM users u
@@ -39,7 +35,6 @@ export const getDashboardStats = async (req, res) => {
     );
 
     // Absent workers today
-    // FIX: worker_availability.status is enum('available','unavailable') — correct
     const [[{ absentWorkers }]] = await db.query(
       `SELECT COUNT(*) AS absentWorkers
        FROM worker_availability
@@ -63,10 +58,7 @@ export const getDashboardStats = async (req, res) => {
   }
 };
 
-// ─────────────────────────────────────────────
 // GET FIELD ACTIVITY SUMMARY
-// GET /api/admin/dashboard/fields
-// ─────────────────────────────────────────────
 export const getFieldActivity = async (req, res) => {
   try {
     const today = new Date().toISOString().split("T")[0];
@@ -90,7 +82,6 @@ export const getFieldActivity = async (req, res) => {
     const enriched = await Promise.all(
       fields.map(async (field) => {
         // Today's task assignments for this field
-        // FIX: GROUP_CONCAT with separator that won't appear in names
         const [todayTasks] = await db.query(
           `SELECT
              t.task_name,
@@ -175,15 +166,9 @@ export const getFieldActivity = async (req, res) => {
   }
 };
 
-// ─────────────────────────────────────────────
 // GET NOTIFICATIONS
-// GET /api/admin/dashboard/notifications
-// FIX: was using req.user.userId inconsistently — standardized to req.user.userId
-// FIX: notifications.type enum is ('task','harvest','alert') — map correctly
-// ─────────────────────────────────────────────
 export const getNotifications = async (req, res) => {
   try {
-    // FIX: use req.user.userId (set by authenticate middleware)
     const userId = req.user.userId;
 
     const [rows] = await db.query(
@@ -197,7 +182,7 @@ export const getNotifications = async (req, res) => {
 
     const today = new Date().toISOString().split("T")[0];
 
-    // Live system alerts: overdue tasks per field
+    // Live system alerts - overdue tasks per field
     const [overdueFields] = await db.query(
       `SELECT f.field_name, COUNT(*) AS cnt
        FROM task_assignments ta
@@ -209,7 +194,7 @@ export const getNotifications = async (req, res) => {
       [today]
     );
 
-    // Live system alerts: tasks completed today
+    // Live system alerts - tasks completed today
     const [[{ doneToday }]] = await db.query(
       `SELECT COUNT(*) AS doneToday FROM task_assignments
        WHERE assigned_date = ? AND status = 'completed'`,
@@ -239,7 +224,6 @@ export const getNotifications = async (req, res) => {
         : []),
     ];
 
-    // FIX: map DB enum types ('task','harvest','alert') to UI display types
     const dbNotifications = rows.map((n) => ({
       id: n.notification_id,
       type: mapNotificationType(n.type),
@@ -266,14 +250,9 @@ export const getNotifications = async (req, res) => {
   }
 };
 
-// ─────────────────────────────────────────────
 // MARK NOTIFICATIONS AS READ
-// PUT /api/admin/dashboard/notifications/read
-// FIX: was using req.user.id — should be req.user.userId
-// ─────────────────────────────────────────────
 export const markNotificationsRead = async (req, res) => {
   try {
-    // FIX: standardized to req.user.userId
     const userId = req.user.userId;
 
     await db.query(
@@ -288,10 +267,7 @@ export const markNotificationsRead = async (req, res) => {
   }
 };
 
-// ─────────────────────────────────────────────
 // GET FIELD DETAIL
-// GET /api/admin/dashboard/fields/:fieldId
-// ─────────────────────────────────────────────
 export const getFieldDetail = async (req, res) => {
   try {
     const { fieldId } = req.params;
@@ -393,9 +369,7 @@ export const getFieldDetail = async (req, res) => {
   }
 };
 
-// ─────────────────────────────────────────────
 // HELPERS
-// ─────────────────────────────────────────────
 const formatTaskStatus = (status) => {
   const map = {
     pending: "Pending",
@@ -406,7 +380,6 @@ const formatTaskStatus = (status) => {
   return map[status] || "Pending";
 };
 
-// FIX: DB enum is ('task','harvest','alert') — map to UI icon types
 const mapNotificationType = (dbType) => {
   const map = {
     task: "info",
