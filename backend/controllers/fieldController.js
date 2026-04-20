@@ -78,7 +78,7 @@ export const createField = async (req, res) => {
       "INSERT INTO fields (field_name, crop_id, location, area) VALUES (?, ?, ?, ?)",
       [field_name, Number(crop_id), location, parseFloat(area)]
     );
-    const fieldId = result.insertId;  // ✅ declared BEFORE use
+    const fieldId = result.insertId;  //  declared BEFORE use
 
     // Assign supervisor if provided
     if (supervisor_id) {

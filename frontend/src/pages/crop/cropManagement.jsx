@@ -569,7 +569,7 @@ const CropManagement = ({ logo }) => {
                                     placeholder="e.g. Tea, Rubber"
                                     value={newCrop.name}
                                     onChange={(e) => {
-                                        // ✅ Block numbers and symbols while typing
+                                        //  Block numbers and symbols while typing
                                         const val = e.target.value;
                                         if (/^[a-zA-Z\s]*$/.test(val)) {
                                             setNewCrop({ ...newCrop, name: val });
@@ -623,7 +623,7 @@ const CropManagement = ({ logo }) => {
                                             value={taskSearch}
                                             onChange={(e) => {
                                                 const val = e.target.value;
-                                                // ✅ Only letters and spaces allowed
+                                                //  Only letters and spaces allowed
                                                 if (/^[a-zA-Z\s]*$/.test(val)) {
                                                 handleTaskNameInput(val);
                                                 }

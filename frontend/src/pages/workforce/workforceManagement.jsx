@@ -9,9 +9,9 @@ import {
     FiList, FiLock, FiEye, FiEyeOff, FiShield, FiLayers
 } from 'react-icons/fi';
 import './workforceManagement.css';
-import { api } from '../../context/AppContext'; // ✅ import shared api instance
+import { api } from '../../context/AppContext'; //  import shared api instance
 
-const API_BASE = '/api/workforce'; // ✅ relative path only
+const API_BASE = '/api/workforce'; //  relative path only
 
 const EMPTY_WORKER_FORM = {
     name: '', email: '', phone: '', password: '', role: 'Worker',

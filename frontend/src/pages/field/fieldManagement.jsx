@@ -633,7 +633,7 @@ const FieldManagement = ({ logo }) => {
                                         <label>Field Name *</label>
                                         <input type="text" placeholder="e.g. North Hill Field"
                                             value={formData.field_name} onChange={(e) => {
-                                                // ✅ Block symbols while typing — allow letters, numbers, spaces only
+                                                // Block symbols while typing — allow letters, numbers, spaces only
                                                 const val = e.target.value;
                                                 if (/^[a-zA-Z0-9\s]*$/.test(val)) {
                                                     setFormData(prev => ({ ...prev, field_name: val }));

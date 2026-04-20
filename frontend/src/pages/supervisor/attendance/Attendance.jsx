@@ -99,13 +99,13 @@ const Attendance = () => {
         [workerId]: {
           status,
 
-          // ✅ only set check-in once
+          //  only set check-in once
           checkInTime:
             (status === 'present' || status === 'late')
               ? existing.checkInTime || new Date().toTimeString().slice(0, 8)
               : null,
 
-          // ✅ NEVER remove checkout accidentally
+          //  NEVER remove checkout accidentally
           checkOutTime: existing.checkOutTime || null
         }
       }
@@ -127,11 +127,11 @@ const Attendance = () => {
       updated[w.worker_id] = {
         status: 'present',
 
-        // ✅ keep existing check-in
+        //  keep existing check-in
         checkInTime:
           existing.checkInTime || new Date().toTimeString().slice(0, 8),
 
-        // ✅ KEEP checkout (THIS WAS MISSING)
+        //  KEEP checkout (THIS WAS MISSING)
         checkOutTime: existing.checkOutTime || null
       };
     });

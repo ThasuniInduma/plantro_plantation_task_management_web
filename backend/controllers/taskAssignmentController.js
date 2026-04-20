@@ -407,7 +407,7 @@ export const getCalendarDots = async (req, res) => {
         const [rows] = await db.query(
           `SELECT date, SUM(task_count) AS task_count
           FROM (
-            -- Assigned tasks
+            
             SELECT assigned_date AS date, COUNT(*) AS task_count
             FROM task_assignments
             WHERE field_id IN (?) 
@@ -416,13 +416,13 @@ export const getCalendarDots = async (req, res) => {
 
             UNION ALL
 
-            -- Smart scheduled tasks (due tasks)
+            
             SELECT next_due_date AS date, COUNT(*) AS task_count
             FROM field_task_schedule
             WHERE field_id IN (?) 
               AND next_due_date BETWEEN ? AND ?
               AND is_dismissed = 0
-            GROUP BY next_due_date   -- ✅ FIX HERE
+            GROUP BY next_due_date  
 
           ) combined
           GROUP BY date`,
