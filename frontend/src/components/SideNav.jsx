@@ -67,7 +67,7 @@ console.log("computed role:", role);
 
   // detect active item
   const isActive = (itemId, itemPath) => {
-    if (activeTab) return activeTab === itemId;
+    activeTab === itemId;
     return location.pathname === itemPath
       || (itemPath !== '/' && location.pathname.startsWith(itemPath));
   };
