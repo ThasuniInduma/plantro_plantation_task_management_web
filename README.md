@@ -174,7 +174,6 @@ http://localhost:5173
 ```
 
 ---
-Plantro modernizes traditional plantation management by introducing a structured, digital, and data-driven approach.  
-It improves productivity, transparency, and communication between administrators, supervisors, and workers, making plantation operations more efficient and scalable.
+Plantro modernizes traditional plantation management by introducing a structured, digital, and data-driven approach. It improves productivity, transparency, and communication between administrators, supervisors, and workers, making plantation operations more efficient and scalable.
 
 ## 🍀 Thank You for Checking Out Plantro! 🚀 Happy coding & happy growing! 🌱
