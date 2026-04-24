@@ -16,7 +16,7 @@ It enables administrators to manage crops, fields, and workforce operations, whi
 ## 🚀 Key Features
 
 - 🌿 **Crop Management** – Manage crops like Tea, Coconut, Cinnamon, Rubber  
-- 🌾 **Field Management** – Organize plantation fields efficiently  
+- 🧩 **Field Management** – Organize plantation fields efficiently  
 - 👷 **Workforce Management** – Manage supervisors and field workers  
 - 📋 **Task Assignment** – Assign and track daily plantation tasks  
 - 📅 **Smart Scheduling** – Automated task planning based on crop type  
