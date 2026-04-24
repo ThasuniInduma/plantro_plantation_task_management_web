@@ -125,7 +125,7 @@ git clone https://github.com/ThasuniInduma/plantro_plantation_task_management_we
 ```bash
 cd backend
 npm install
-npm run dev
+npm run server
 ```
 
 3. **Frontend Setup**
