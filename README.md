@@ -139,16 +139,17 @@ npm run dev
 
 Backend .env
 ```bash
-PORT=8081
-DB_HOST=localhost
-DB_USER=root
-DB_PASSWORD=your_password
-DB_NAME=plantro_db
+MYSQL_HOST=localhost
+MYSQL_USER=root
+MYSQL_DB_PASS=your_password
+MYSQL_DB_NAME=plantro_db
 JWT_SECRET=your_secret_key
+EMAIL_USER=your_email_address
+EMAIL_PASS=your_email_password
 ```
 Frontend .env
 ```bash
-VITE_API_BASE_URL=http://localhost:8081/api
+VITE_API_BASE_URL=http://localhost:8081
 ```
 
 5. **Database Setup (MySQL)**
