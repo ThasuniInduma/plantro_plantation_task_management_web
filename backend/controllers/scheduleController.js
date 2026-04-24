@@ -85,7 +85,7 @@ export const getTodaySchedule = async (req, res) => {
   }
 };
 
-//  get schedule by date
+// get schedule by date
 export const getScheduleByDate = async (req, res) => {
   try {
     const supervisorUserId = req.user?.id;
@@ -160,7 +160,7 @@ export const getScheduleByDate = async (req, res) => {
   }
 };
 
-// get upcomming schedules
+// get upcoming schedules
 export const getUpcomingSchedule = async (req, res) => {
   try {
     const supervisorUserId = req.user?.id;
@@ -202,7 +202,7 @@ export const getUpcomingSchedule = async (req, res) => {
   }
 };
 
-// assigned worker to tasks
+// assign worker to scheduled task
 export const assignWorkerToScheduledTask = async (req, res) => {
   try {
     const supervisorUserId = req.user?.id;
@@ -288,9 +288,9 @@ export const assignWorkerToScheduledTask = async (req, res) => {
       }
     }
 
-    // check today's used hours
+    // check worker's used hours for the day
     const [hoursUsedRows] = await db.query(
-      `SELECT COALESCE(SUM(expected_hours),0) AS used
+      `SELECT COALESCE(SUM(expected_hours), 0) AS used
        FROM task_assignments
        WHERE worker_id = ? AND assigned_date = ? AND status != 'rejected'`,
       [workerId, assignDate]
@@ -301,18 +301,34 @@ export const assignWorkerToScheduledTask = async (req, res) => {
 
     if (remaining <= 0) {
       return res.status(400).json({
-        error: "Worker has no available hours"
+        error: "Worker has no available hours today"
       });
     }
 
-    const workersNeeded = Math.ceil(
-      sched.estimated_man_hours / expected_hours_per_worker
+    // ── FIX: calculate hours already assigned to THIS task ──
+    const [alreadyAssignedRows] = await db.query(
+      `SELECT COALESCE(SUM(expected_hours), 0) AS total
+       FROM task_assignments
+       WHERE task_id = ? AND field_id = ? AND assigned_date = ? AND status != 'rejected'`,
+      [sched.task_id, sched.field_id, assignDate]
     );
 
-    const hoursToAssign = Math.min(
-      expected_hours_per_worker,
-      sched.estimated_man_hours
-    );
+    const hoursAlreadyAssigned = Number(alreadyAssignedRows[0].total);
+    const hoursStillNeeded = Math.max(0, sched.estimated_man_hours - hoursAlreadyAssigned);
+
+    if (hoursStillNeeded <= 0) {
+      return res.status(400).json({ error: "Task is already fully assigned" });
+    }
+
+    // Assign only what's still needed, capped at worker's contribution & remaining capacity
+    const hoursToAssign = Math.min(expected_hours_per_worker, hoursStillNeeded, remaining);
+
+    if (hoursToAssign <= 0) {
+      return res.status(400).json({ error: "No hours left to assign for this task" });
+    }
+    // ── END FIX ──
+
+    const workersNeeded = Math.ceil(sched.estimated_man_hours / expected_hours_per_worker);
 
     // insert assignment
     const [result] = await db.query(
@@ -373,6 +389,8 @@ export const assignWorkerToScheduledTask = async (req, res) => {
       task_id: sched.task_id,
       field_id: sched.field_id,
       hours_assigned: hoursToAssign,
+      hours_already_assigned: hoursAlreadyAssigned,
+      hours_still_needed: hoursStillNeeded - hoursToAssign,
       workers_needed_for_task: workersNeeded,
       hours_remaining: remaining - hoursToAssign,
       message: "Worker assigned successfully"
@@ -384,7 +402,7 @@ export const assignWorkerToScheduledTask = async (req, res) => {
   }
 };
 
-// get unassigned workers
+// unassign worker
 export const unassignWorker = async (req, res) => {
   try {
     const supervisorUserId = req.user?.id;
@@ -451,11 +469,12 @@ export const updateAssignmentStatus = async (req, res) => {
   try {
     const supervisorUserId = req.user?.id;
     if (!supervisorUserId) return res.status(401).json({ error: "Supervisor required" });
-    const { assignment_id, status } = req.body; // 'in_progress', 'completed'
+    const { assignment_id, status } = req.body;
 
     // get assignment
     const [assignRows] = await db.query(
-      `SELECT ta.assignment_id, ta.worker_id, ta.task_id, ta.field_id, ta.status, ta.expected_hours,
+      `SELECT ta.assignment_id, ta.worker_id, ta.task_id, ta.field_id, ta.status,
+              ta.expected_hours, ta.assigned_date,
               fts.schedule_id, ct.frequency_days, t.task_name,
               u.user_id AS worker_user_id, u.full_name, u.email
        FROM task_assignments ta
@@ -477,7 +496,6 @@ export const updateAssignmentStatus = async (req, res) => {
     );
     if (!supCheck.length) return res.status(403).json({ error: "Not your field" });
 
-    // update status
     const now = new Date();
     if (status === 'completed') {
       await db.query(
@@ -507,7 +525,6 @@ export const updateAssignmentStatus = async (req, res) => {
       );
     }
 
-    // notification
     const statusMsg = status === 'completed' ? 'marked as completed' : 'started';
     await createNotification(
       assign.worker_user_id,
@@ -546,7 +563,6 @@ export const pauseTask = async (req, res) => {
     if (!supervisorUserId) return res.status(401).json({ error: "Supervisor required" });
     const { schedule_id } = req.body;
 
-    // get schedule
     const [schedRows] = await db.query(
       `SELECT fts.schedule_id, fts.field_id, fts.next_due_date, t.task_name
        FROM field_task_schedule fts
@@ -557,14 +573,12 @@ export const pauseTask = async (req, res) => {
     if (!schedRows.length) return res.status(404).json({ error: "Schedule not found" });
     const sched = schedRows[0];
 
-    // verify supervisor
     const [supCheck] = await db.query(
       `SELECT supervisor_id FROM supervisors WHERE user_id = ? AND field_id = ?`,
       [supervisorUserId, sched.field_id]
     );
     if (!supCheck.length) return res.status(403).json({ error: "Not your field" });
 
-    // update next_due_date to tomorrow
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
     await db.query(
@@ -579,7 +593,7 @@ export const pauseTask = async (req, res) => {
   }
 };
 
-// worke mark task status
+// worker mark task complete
 export const workerMarkComplete = async (req, res) => {
   const conn = await db.getConnection();
   try {
@@ -604,7 +618,6 @@ export const workerMarkComplete = async (req, res) => {
       [assignment_id, task_id, field_id]
     );
 
-    // Notify supervisor
     const [[sup]] = await conn.query(
       `SELECT s.user_id, u.full_name, u.email FROM supervisors s
        JOIN users u ON s.user_id=u.user_id WHERE s.field_id=?`,
@@ -617,14 +630,14 @@ export const workerMarkComplete = async (req, res) => {
       );
       await createNotification(
         sup.user_id,
-        " Task Ready for Verification",
+        "✅ Task Ready for Verification",
         `A worker completed "${taskInfo?.task_name}" at ${taskInfo?.field_name}. Please verify.`,
         "task_completed",
         assignment_id
       );
       if (req.app?.get('io')) {
         req.app.get('io').to(`user_${sup.user_id}`).emit('notification', {
-          title: " Task Ready for Verification",
+          title: "✅ Task Ready for Verification",
           message: `A worker completed "${taskInfo?.task_name}" at ${taskInfo?.field_name}.`,
           type: "task_completed"
         });
@@ -641,7 +654,7 @@ export const workerMarkComplete = async (req, res) => {
   }
 };
 
-// supervisor verify task status
+// supervisor verify task
 export const supervisorVerify = async (req, res) => {
   const conn = await db.getConnection();
   try {
@@ -679,7 +692,6 @@ export const supervisorVerify = async (req, res) => {
     }
 
     if (action === "approve") {
-      // Get assignment details to check if ALL workers are complete
       const [assignmentInfo] = await conn.query(
         `SELECT task_id, field_id, assigned_date FROM task_assignments WHERE assignment_id=?`,
         [assignment_id]
@@ -688,25 +700,25 @@ export const supervisorVerify = async (req, res) => {
         await conn.rollback();
         return res.status(404).json({ error: "Assignment not found" });
       }
-      
+
       const { task_id: assignTask, field_id: assignField, assigned_date } = assignmentInfo[0];
-      
-      // Check if ALL workers assigned to this task on this date have completed
+
       const [allAssignments] = await conn.query(
-        `SELECT assignment_id, status FROM task_assignments 
-        WHERE task_id=? AND field_id=? AND assigned_date=? 
-        AND status != 'rejected'`,
+        `SELECT assignment_id, status FROM task_assignments
+         WHERE task_id=? AND field_id=? AND assigned_date=?
+         AND status != 'rejected'`,
         [assignTask, assignField, assigned_date]
       );
 
       const allCompleted =
         allAssignments.length > 0 &&
         allAssignments.every(a => a.status === 'completed');
+
       if (!allCompleted) {
         await conn.rollback();
         const pending = allAssignments.filter(a => a.status !== 'completed').length;
-        return res.status(400).json({ 
-          error: `Cannot approve yet. ${pending} worker(s) still need to complete their tasks.` 
+        return res.status(400).json({
+          error: `Cannot approve yet. ${pending} worker(s) still need to complete their tasks.`
         });
       }
 
@@ -757,7 +769,7 @@ export const supervisorVerify = async (req, res) => {
             const w = aInfo[0];
             await createNotification(
               w.user_id,
-              ` Task Approved: ${w.task_name}`,
+              `Task Approved: ${w.task_name}`,
               `Your task "${w.task_name}" at ${w.field_name} was approved. Next due: ${nextDueStr}`,
               "task_verified",
               assignment_id
@@ -767,7 +779,7 @@ export const supervisorVerify = async (req, res) => {
             );
             if (req.app?.get('io')) {
               req.app.get('io').to(`user_${w.user_id}`).emit('notification', {
-                title: ` Task Approved: ${w.task_name}`,
+                title: `Task Approved: ${w.task_name}`,
                 message: `Your task "${w.task_name}" was approved. Next due: ${nextDueStr}`,
                 type: "task_verified"
               });
@@ -806,7 +818,7 @@ export const supervisorVerify = async (req, res) => {
         const w = aInfo[0];
         await createNotification(
           w.user_id,
-          ` Task Rejected`,
+          `Task Rejected`,
           `Task "${w.task_name}" was rejected. Reason: ${reject_reason || "No reason provided"}`,
           "task_rejected",
           assignment_id
@@ -816,7 +828,7 @@ export const supervisorVerify = async (req, res) => {
         );
         if (req.app?.get('io')) {
           req.app.get('io').to(`user_${w.user_id}`).emit('notification', {
-            title: ` Task Rejected`,
+            title: `Task Rejected`,
             message: `Task "${w.task_name}" was rejected. Reason: ${reject_reason || "No reason provided"}`,
             type: "task_rejected"
           });
@@ -837,7 +849,7 @@ export const supervisorVerify = async (req, res) => {
   }
 };
 
-// dissmiss tasks
+// dismiss task
 export const dismissTask = async (req, res) => {
   try {
     const supervisorUserId = req.user?.id;
@@ -862,7 +874,6 @@ export const dismissTask = async (req, res) => {
     if (schedInfo.length) {
       const { task_id, field_id, task_name } = schedInfo[0];
 
-      // Move assigned tasks to tomorrow so workers can continue them there
       const [pendingWorkers] = await db.query(
         `SELECT ta.assignment_id, w.user_id, u.full_name, u.email
          FROM task_assignments ta
@@ -914,7 +925,6 @@ export const getWorkersForSchedule = async (req, res) => {
     const { date, field_id, task_id } = req.query;
     const queryDate = date || getLocalDate();
 
-    // Get supervisor's fields
     const [supFields] = await db.query(
       `SELECT field_id FROM supervisors WHERE user_id=?`,
       [supervisorUserId]
@@ -925,9 +935,9 @@ export const getWorkersForSchedule = async (req, res) => {
     const safeParse = (d) => {
       if (!d) return [];
       if (Array.isArray(d)) return d;
-      try { return JSON.parse(d); } catch (e) { 
+      try { return JSON.parse(d); } catch (e) {
         console.warn("Parse error for:", d, e);
-        return []; 
+        return [];
       }
     };
 
@@ -939,7 +949,6 @@ export const getWorkersForSchedule = async (req, res) => {
         );
         requiredSkills = skills.map(s => s.skill_name.toLowerCase().trim());
       } catch (skillError) {
-        // task_skills table may not exist; skip skill filtering
         console.warn("Skill filtering unavailable:", skillError.message);
         requiredSkills = [];
       }
@@ -956,7 +965,6 @@ export const getWorkersForSchedule = async (req, res) => {
       [queryDate]
     );
 
-    // Attendance check
     const [attendance] = await db.query(
       `SELECT worker_id, status FROM attendance WHERE date=?`,
       [queryDate]
@@ -966,23 +974,17 @@ export const getWorkersForSchedule = async (req, res) => {
 
     let parsed = workers.map(w => {
       try {
-        const skillsArray = safeParse(w.skills) || [];
-        const locationsArray = safeParse(w.preferred_locations) || [];
         return {
           ...w,
-          skills: skillsArray.map(s => String(s || '').toLowerCase().trim()).filter(s => s),
-          preferred_locations: locationsArray.map(loc => {
+          skills: (safeParse(w.skills) || []).map(s => String(s || '').toLowerCase().trim()).filter(s => s),
+          preferred_locations: (safeParse(w.preferred_locations) || []).map(loc => {
             const num = Number(loc);
             return isNaN(num) ? null : num;
           }).filter(n => n !== null)
         };
       } catch (e) {
         console.error("Error parsing worker:", w.worker_id, e);
-        return {
-          ...w,
-          skills: [],
-          preferred_locations: []
-        };
+        return { ...w, skills: [], preferred_locations: [] };
       }
     });
 
@@ -995,9 +997,7 @@ export const getWorkersForSchedule = async (req, res) => {
     );
 
     const hoursMap = {};
-    hoursUsed.forEach(h => {
-      hoursMap[h.worker_id] = Number(h.used);
-    });
+    hoursUsed.forEach(h => { hoursMap[h.worker_id] = Number(h.used); });
 
     const filtered = parsed.filter(w => {
       const used = hoursMap[w.worker_id] || 0;
@@ -1007,7 +1007,6 @@ export const getWorkersForSchedule = async (req, res) => {
       if (w.availability_status !== "available") return false;
       if (remaining <= 0) return false;
 
-      // ONLY supervisor fields allowed
       if (w.preferred_locations && Array.isArray(w.preferred_locations) && w.preferred_locations.length > 0) {
         const match = w.preferred_locations.some(loc => {
           const locNum = Number(loc);
@@ -1016,7 +1015,6 @@ export const getWorkersForSchedule = async (req, res) => {
         if (!match) return false;
       }
 
-      // If has required skills, must have at least one
       if (requiredSkills && Array.isArray(requiredSkills) && requiredSkills.length > 0) {
         if (!w.skills || !Array.isArray(w.skills) || w.skills.length === 0) return false;
         const ok = requiredSkills.some(s => w.skills.includes(s));

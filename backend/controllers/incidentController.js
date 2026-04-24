@@ -8,9 +8,10 @@ export const createIncident = async (req, res) => {
       return res.status(401).json({ message: "Unauthorized" });
     }
 
-    let { field_id, title, description, incident_type, severity } = req.body;
+    let { field_id, title, description, incident_type, severity, impact_id } = req.body;
 
     field_id = Number(field_id);
+    impact_id = Number(impact_id);
 
     if (!field_id || !title || !description) {
       return res.status(400).json({ message: "Missing required fields" });
@@ -31,6 +32,7 @@ export const createIncident = async (req, res) => {
       'critical'
     ];
 
+
     // validate input
     incident_type = (incident_type || '').toLowerCase().trim();
     severity = (severity || '').toLowerCase().trim();
@@ -44,6 +46,8 @@ export const createIncident = async (req, res) => {
       severity = 'low';
     }
 
+
+
     // get supervisor
     const [sup] = await db.query(
       "SELECT user_id FROM supervisors WHERE field_id = ?",
@@ -55,8 +59,8 @@ export const createIncident = async (req, res) => {
     // insert incident
     const [result] = await db.query(
       `INSERT INTO incident_reports 
-      (reporter_id, field_id, supervisor_id, title, description, incident_type, severity)
-      VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      (reporter_id, field_id, supervisor_id, title, description, incident_type, severity, impact_id)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         userId,
         field_id,
@@ -64,7 +68,8 @@ export const createIncident = async (req, res) => {
         title,
         description,
         incident_type,
-        severity
+        severity, 
+        impact_id
       ]
     );
 
@@ -126,6 +131,7 @@ export const getSupervisorIncidents = async (req, res) => {
         ir.description,
         ir.incident_type,
         ir.severity,
+        i.impact_name,
         ir.status,
         ir.created_at,
         f.field_name,
@@ -133,6 +139,7 @@ export const getSupervisorIncidents = async (req, res) => {
        FROM incident_reports ir
        JOIN fields f ON ir.field_id = f.field_id
        JOIN users u ON ir.reporter_id = u.user_id
+       JOIN impact i ON ir.impact_id = i.impact_id
        WHERE ir.supervisor_id = ?
        ORDER BY ir.created_at DESC`,
       [supervisorId]
@@ -199,9 +206,11 @@ export const getMyIncidents = async (req, res) => {
         ir.severity,
         ir.status,
         ir.created_at,
-        f.field_name
+        f.field_name,
+        i.impact_name
        FROM incident_reports ir
        JOIN fields f ON ir.field_id = f.field_id
+       JOIN impact i ON ir.impact_id = i.impact_id
        WHERE ir.reporter_id = ?
        ORDER BY ir.created_at DESC`,
       [userId]

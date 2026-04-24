@@ -11,13 +11,14 @@ import assignmentRoutes from "./routes/taskAssignmentRoutes.js";
 import scheduleRoutes from "./routes/scheduleRoutes.js";
 import workforceRoutes from "./routes/workforceRoutes.js";   // ← ADD THIS
 import cron from "node-cron";
-import { generateSchedules } from "./services/schedulerService.js";
 import adminDashboardRoutes from "./routes/admindashboardRoutes.js";
 import attendanceRoutes from "./routes/attendanceRoutes.js";
 import notificationRoutes from "./routes/notificationRoutes.js";
 import reportRoutes from "./routes/reportRoutes.js";
 import incidentRoutes from "./routes/incidentRoutes.js";
 import harvestRoutes from "./routes/harvestRoutes.js";
+import impactRoutes from "./routes/impactRoutes.js";
+
 import { db } from "./config/db.js";
 
 dotenv.config();
@@ -43,13 +44,11 @@ app.use("/api/notifications", notificationRoutes);
 app.use("/api/reports", reportRoutes);
 app.use("/api/incidents", incidentRoutes);
 app.use("/api/harvest", harvestRoutes);
+app.use("/api/impacts", impactRoutes);
 
 
-generateSchedules();
 
-cron.schedule("0 0 * * *", async () => {
-  console.log("Running daily scheduler...");
-  await generateSchedules();
-});
+
+
 
 app.listen(process.env.PORT, () => console.log(`Server running on ${process.env.PORT}`));

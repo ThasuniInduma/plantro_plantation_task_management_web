@@ -20,6 +20,7 @@ const WorkerDashboard = () => {
   const { userData, backendUrl } = useContext(AppContext);
 
   const [fields, setFields] = useState([]);
+  const [impacts, setImpacts] = useState([]);
 
   const [tasks,           setTasks]           = useState([]);
   const [tomorrowTasks,   setTomorrowTasks]   = useState([]);
@@ -39,6 +40,7 @@ const WorkerDashboard = () => {
   const [description, setDescription] = useState('');
   const [incident_type, setIncidentType] = useState('other');
   const [severity, setSeverity] = useState('low');
+  const [selectedImpact, setSelectedImpact] = useState('');
 
   const [myReports, setMyReports] = useState([]);
 const [loadingReports, setLoadingReports] = useState(false);
@@ -89,6 +91,7 @@ const [loadingReports, setLoadingReports] = useState(false);
     setLoadingReports(false);
   }
 }, [backendUrl]);
+
   
   const fetchNotifications = useCallback(async () => {
     try {
@@ -159,6 +162,28 @@ useEffect(() => {
   fetchFields();
 }, [fetchFields]);
 
+const fetchImpacts = useCallback(async () => {
+  try {
+    const { data } = await axios.get(`${backendUrl}/api/impacts`, {
+      withCredentials: true,
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem("token")}`
+      }
+    });
+
+    setImpacts(Array.isArray(data) ? data : []);
+
+  } catch (err) {
+    console.error("Error fetching impacts:", err);
+    setImpacts([]);
+  }
+}, [backendUrl]);
+
+useEffect(() => {
+  fetchImpacts();
+}, [fetchImpacts]);
+
+
 const submitIncident = async () => {
   if (!selectedField || !title || !description) {
     alert("Please fill all required fields");
@@ -171,7 +196,8 @@ const submitIncident = async () => {
       title: title.trim(),
       description: description.trim(),
       incident_type: (incident_type || 'other').toLowerCase(),
-      severity: (severity || 'low').toLowerCase()
+      severity: (severity || 'low').toLowerCase(),
+      impact_id: Number(selectedImpact)
     };
 
     console.log("INCIDENT PAYLOAD:", payload);
@@ -198,6 +224,7 @@ const submitIncident = async () => {
       setDescription('');
       setIncidentType('other');
       setSeverity('low');
+      setSelectedImpact('');
     }
 
   } catch (err) {
@@ -459,6 +486,18 @@ const submitIncident = async () => {
                 <option value="medium">Medium</option>
                 <option value="high">High</option>
                 <option value="critical">Critical</option>
+              </select>
+
+              <select
+                value={selectedImpact}
+                onChange={(e) => setSelectedImpact(e.target.value)}
+              >
+                <option value="">Impact</option>
+                {impacts.map((impact) => (
+                  <option key={impact.impact_id} value={impact.impact_id}>
+                    {impact.impact_name}
+                  </option>
+                ))}
               </select>
 
               <button onClick={submitIncident}>

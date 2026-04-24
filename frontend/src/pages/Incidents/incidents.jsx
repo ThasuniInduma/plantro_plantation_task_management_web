@@ -120,6 +120,7 @@ export default function Incidents() {
                 <div className="inc-info">
                   <div><FiMapPin /> {i.field_name}</div>
                   <div><FiUser /> {i.reporter_name}</div>
+                  <div>{i.impact_name}</div>
                   <div><FiClock /> {new Date(i.created_at).toLocaleString()}</div>
                 </div>
 
